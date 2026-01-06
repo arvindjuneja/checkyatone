@@ -1,6 +1,6 @@
-# 🎵 VocalViz - Real-Time Vocal Pitch Analyzer
+# 🎵 Vocal Coach - Real-Time Vocal Pitch Analyzer
 
-VocalViz is a modern web application for real-time vocal pitch analysis and visualization. Perfect for singers, vocal coaches, and anyone looking to improve their pitch accuracy.
+Vocal Coach is a modern web application for real-time vocal pitch analysis and visualization. Perfect for singers, vocal coaches, and anyone looking to improve their pitch accuracy.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)
@@ -109,7 +109,7 @@ voice/
 
 ### Pitch Detection Algorithm
 
-VocalViz uses the **YIN algorithm** for fundamental frequency estimation:
+Vocal Coach uses the **YIN algorithm** for fundamental frequency estimation:
 
 1. **Audio Capture**: Uses Web Audio API to capture microphone input
 2. **Signal Processing**:
@@ -142,7 +142,7 @@ VocalViz uses the **YIN algorithm** for fundamental frequency estimation:
 
 ### Vercel (Recommended)
 
-The easiest way to deploy VocalViz:
+The easiest way to deploy Vocal Coach:
 
 ```bash
 npm install -g vercel
@@ -176,7 +176,7 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
 
 ## 🔒 Privacy
 
-VocalViz runs entirely in your browser. No audio data is sent to any server. All processing happens locally on your device.
+Vocal Coach runs entirely in your browser. No audio data is sent to any server. All processing happens locally on your device.
 
 ## 🐛 Troubleshooting
 
@@ -213,3 +213,5 @@ This project is open source and available under the MIT License.
 ---
 
 Made with ❤️ for singers and vocal enthusiasts
+
+© 2026 Arvind Juneja | [Instagram](https://instagram.com/ajuneja) | [LinkedIn](https://www.linkedin.com/in/arvindjuneja/)

@@ -8,7 +8,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "VocalViz - Analiza Wokalna",
+  title: "Vocal Coach - Analiza Wokalna",
   description: "Aplikacja do analizy śpiewu z wizualizacją pitchu, nut i vibrato",
   generator: "v0.app",
 }
