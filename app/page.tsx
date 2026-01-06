@@ -7,6 +7,7 @@ import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 import { TimelineAnalysis } from "@/components/timeline-analysis"
 import { AudioSettings } from "@/components/audio-settings"
+import { TrainingMode } from "@/components/training-mode"
 import { Music2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -29,7 +30,7 @@ export default function VocalAnalyzerPage() {
     updateSensitivity,
   } = useAudioRecorder()
 
-  const [activeTab, setActiveTab] = useState<"live" | "analysis">("live")
+  const [activeTab, setActiveTab] = useState<"live" | "analysis" | "training">("live")
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -55,6 +56,14 @@ export default function VocalAnalyzerPage() {
               }`}
             >
               Na żywo
+            </button>
+            <button
+              onClick={() => setActiveTab("training")}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                activeTab === "training" ? "bg-background text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              Trenuj
             </button>
             <button
               onClick={() => setActiveTab("analysis")}
@@ -112,6 +121,16 @@ export default function VocalAnalyzerPage() {
                 recordingDuration={recordingDuration}
               />
             </div>
+          </>
+        ) : activeTab === "training" ? (
+          <>
+            {/* Training Mode */}
+            <TrainingMode
+              currentPitch={currentPitch}
+              isRecordingActive={isRecording}
+              onStartRecording={startRecording}
+              onStopRecording={stopRecording}
+            />
           </>
         ) : (
           <>
