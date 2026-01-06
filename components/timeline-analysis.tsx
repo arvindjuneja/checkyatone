@@ -36,6 +36,14 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
     let currentSegment: NoteSegment | null = null
     const gapThreshold = 200
 
+    const finalizeSegment = (segment: NoteSegment) => {
+      const avgCents =
+        segment.pitchData.reduce((sum, p) => sum + Math.abs(p.cents), 0) / segment.pitchData.length
+      segment.avgCents = avgCents
+      segment.accuracy = avgCents <= 10 ? "perfect" : avgCents <= 25 ? "good" : "off"
+      segments.push(segment)
+    }
+
     pitchHistory.forEach((pitch) => {
       const noteKey = `${pitch.note}${pitch.octave}`
 
@@ -45,11 +53,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
         pitch.timestamp - currentSegment.endTime > gapThreshold
       ) {
         if (currentSegment && currentSegment.pitchData.length > 0) {
-          const avgCents =
-            currentSegment.pitchData.reduce((sum, p) => sum + Math.abs(p.cents), 0) / currentSegment.pitchData.length
-          currentSegment.avgCents = avgCents
-          currentSegment.accuracy = avgCents <= 10 ? "perfect" : avgCents <= 25 ? "good" : "off"
-          segments.push(currentSegment)
+          finalizeSegment(currentSegment)
         }
         currentSegment = {
           note: pitch.note,
@@ -66,12 +70,8 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
       }
     })
 
-    if (currentSegment && currentSegment.pitchData.length > 0) {
-      const avgCents =
-        currentSegment.pitchData.reduce((sum, p) => sum + Math.abs(p.cents), 0) / currentSegment.pitchData.length
-      currentSegment.avgCents = avgCents
-      currentSegment.accuracy = avgCents <= 10 ? "perfect" : avgCents <= 25 ? "good" : "off"
-      segments.push(currentSegment)
+    if (currentSegment !== null) {
+      finalizeSegment(currentSegment)
     }
 
     return segments

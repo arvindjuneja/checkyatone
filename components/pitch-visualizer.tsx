@@ -75,7 +75,7 @@ function calculateVisibleRange(
 
 export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: PitchVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number | undefined>(undefined)
   const currentRangeRef = useRef({ minSemitone: 36, maxSemitone: 72 })
 
   const draw = useCallback(() => {
