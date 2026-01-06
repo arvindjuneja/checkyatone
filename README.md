@@ -1,5 +1,7 @@
 # 🎵 Vocal Coach - Real-Time Vocal Pitch Analyzer
 
+![image of the app](public/screen.jpg)
+
 Vocal Coach is a modern web application for real-time vocal pitch analysis and visualization. Perfect for singers, vocal coaches, and anyone looking to improve their pitch accuracy.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)
