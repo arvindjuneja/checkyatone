@@ -9,6 +9,8 @@ Vocal Coach is a modern web application for real-time vocal pitch analysis and v
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind-4.1-38bdf8?style=flat-square&logo=tailwind-css)
 
+
+[Check it live at Sing.arvind.digital](https//sing.arvind.digital)
 ## ✨ Features
 
 ### 🎤 Real-Time Analysis
