@@ -205,19 +205,19 @@ export default function VocalAnalyzerPage() {
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-perfect mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-perfect">Jasny pomarańczowy</strong> - śpiewasz idealnie w tonacji (±10 centów)
+                    <strong className="text-pitch-perfect">Zielony</strong> - śpiewasz idealnie w tonacji (±10 centów)
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-good mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-good">Średni pomarańczowy</strong> - jesteś blisko, ale lekko odchylony (±25 centów)
+                    <strong className="text-pitch-good">Żółtozielony</strong> - jesteś blisko, ale lekko odchylony (±25 centów)
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-off mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-off">Ciemny pomarańczowy</strong> - znaczące odchylenie od nuty ({">"}25 centów)
+                    <strong className="text-pitch-off">Czerwony</strong> - znaczące odchylenie od nuty ({">"}25 centów)
                   </span>
                 </li>
               </ul>

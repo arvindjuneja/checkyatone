@@ -39,10 +39,10 @@
   --sidebar-border: oklch(0.28 0.01 270);
   --sidebar-ring: oklch(0.75 0.18 180);
 
-  /* Custom colors for pitch accuracy - orange tones only */
-  --pitch-perfect: oklch(0.75 0.14 50);
-  --pitch-good: oklch(0.70 0.13 45);
-  --pitch-off: oklch(0.65 0.12 35);
+  /* Custom colors for pitch accuracy */
+  --pitch-perfect: oklch(0.75 0.15 145); /* Green for perfect hits */
+  --pitch-good: oklch(0.70 0.13 80);     /* Yellow-green for good */
+  --pitch-off: oklch(0.65 0.15 25);      /* Red-orange for off */
 }
 
 @theme inline {
