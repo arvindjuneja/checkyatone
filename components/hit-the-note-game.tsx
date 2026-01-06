@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useHitTheNoteGame, type OctaveRange } from "@/hooks/use-hit-the-note-game"
-import { Play, Volume2, SkipForward, Home, Heart, Trophy, Music } from "lucide-react"
+import { Play, Volume2, SkipForward, Home, Heart, Music, ChevronUp, ChevronDown, Check } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
 interface HitTheNoteGameProps {
@@ -30,6 +30,7 @@ export function HitTheNoteGame({
     isPlayingNote,
     hitProgress,
     isHittingNote,
+    pitchFeedback,
     startGame,
     playCurrentNote,
     processPitch,
@@ -52,7 +53,7 @@ export function HitTheNoteGame({
           <div>
             <h2 className="text-2xl font-bold mb-2">Hit the Note!</h2>
             <p className="text-sm text-muted-foreground">
-              Trafiaj w losowe nuty tak szybko jak potrafisz
+              Trafiaj w losowe nuty i utrzymuj je przez 3 sekundy
             </p>
           </div>
         </div>
@@ -62,23 +63,19 @@ export function HitTheNoteGame({
           <ul className="text-sm text-muted-foreground space-y-2">
             <li className="flex items-start gap-2">
               <span className="text-pitch-perfect">1.</span>
-              <span>Usłyszysz losową nutę - zapamiętaj ją</span>
+              <span>Usłyszysz nutę - zapamiętaj ją</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-pitch-perfect">2.</span>
-              <span>Zaśpiewaj/zanucić tę samą nutę</span>
+              <span>Zaśpiewaj tę nutę i <strong>utrzymaj przez ~3s</strong></span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-pitch-perfect">3.</span>
-              <span>Trafienie = +10 punktów, następna nuta</span>
+              <span>Strzałki ↑↓ pokażą czy śpiewasz za wysoko/nisko</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-pitch-off">4.</span>
               <span>Możesz pominąć nutę, ale stracisz życie</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-pitch-off">5.</span>
-              <span>Gra kończy się po 3 błędach</span>
             </li>
           </ul>
         </div>
@@ -143,10 +140,94 @@ export function HitTheNoteGame({
     )
   }
 
+  // Celebrating Phase - Note Hit! 🎉
+  if (phase === "celebrating") {
+    return (
+      <div className="space-y-4">
+        {/* Score and Lives Header */}
+        <div className="flex justify-between items-center">
+          <div className="bg-card rounded-xl px-4 py-2 border border-border">
+            <div className="text-xs text-muted-foreground mb-1">Score</div>
+            <div className="text-2xl font-bold text-pitch-perfect">{score}</div>
+          </div>
+          <div className="flex gap-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Heart
+                key={i}
+                className={`w-8 h-8 ${
+                  i < lives
+                    ? "fill-pitch-off text-pitch-off"
+                    : "fill-muted text-muted"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Celebration Display */}
+        <div className="bg-gradient-to-br from-pitch-perfect/20 via-pitch-good/20 to-pitch-perfect/20 rounded-xl p-8 border-2 border-pitch-perfect text-center space-y-4 animate-pulse">
+          <div className="text-6xl animate-bounce">🎉</div>
+          <div className="text-5xl font-bold text-pitch-perfect">
+            PERFECT!
+          </div>
+          <div className="text-2xl font-mono text-foreground">
+            {currentNote?.note}{currentNote?.octave}
+          </div>
+          <div className="text-pitch-perfect font-semibold text-lg">
+            +10 punktów!
+          </div>
+        </div>
+
+        {/* Progress Bar - Full */}
+        <div className="w-full h-4 bg-secondary rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-pitch-perfect to-pitch-good transition-all duration-300"
+            style={{ width: "100%" }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   // Playing Phase
   if (phase === "playing") {
     const successfulHits = attempts.filter(a => a.success).length
-    const totalAttempts = attempts.length
+
+    // Determine pitch indicator
+    const getPitchIndicator = () => {
+      if (!pitchFeedback || !currentPitch) return null
+      
+      const { direction, cents } = pitchFeedback
+      
+      if (direction === "perfect") {
+        return (
+          <div className="flex items-center justify-center gap-2 text-pitch-perfect">
+            <Check className="w-6 h-6" />
+            <span className="font-bold">Idealnie!</span>
+          </div>
+        )
+      }
+      
+      if (direction === "sharp") {
+        return (
+          <div className="flex items-center justify-center gap-2 text-pitch-off">
+            <ChevronUp className="w-8 h-8 animate-bounce" />
+            <span className="font-bold">Za wysoko! ({cents > 0 ? "+" : ""}{cents}¢)</span>
+          </div>
+        )
+      }
+      
+      if (direction === "flat") {
+        return (
+          <div className="flex items-center justify-center gap-2 text-amber-500">
+            <ChevronDown className="w-8 h-8 animate-bounce" />
+            <span className="font-bold">Za nisko! ({cents}¢)</span>
+          </div>
+        )
+      }
+      
+      return null
+    }
 
     return (
       <div className="space-y-4">
@@ -171,8 +252,10 @@ export function HitTheNoteGame({
         </div>
 
         {/* Current Note Display */}
-        <div className="bg-card rounded-xl p-8 border border-border text-center space-y-4">
-          <div className="text-sm text-muted-foreground">Hit this note:</div>
+        <div className={`bg-card rounded-xl p-6 border-2 text-center space-y-3 transition-all ${
+          isHittingNote ? "border-pitch-perfect bg-pitch-perfect/5" : "border-border"
+        }`}>
+          <div className="text-sm text-muted-foreground">Zaśpiewaj i utrzymaj:</div>
           <div className={`text-7xl font-bold font-mono transition-all ${
             isHittingNote ? "text-pitch-perfect scale-110" : "text-foreground"
           }`}>
@@ -180,42 +263,60 @@ export function HitTheNoteGame({
           </div>
           
           {/* Hit Progress Bar */}
-          <div className="w-full h-3 bg-secondary rounded-full overflow-hidden">
+          <div className="relative w-full h-4 bg-secondary rounded-full overflow-hidden">
             <div
-              className="h-full bg-pitch-perfect transition-all duration-150"
+              className={`h-full transition-all duration-100 ${
+                hitProgress > 80 ? "bg-gradient-to-r from-pitch-perfect to-pitch-good" :
+                hitProgress > 40 ? "bg-pitch-good" :
+                "bg-pitch-perfect"
+              }`}
               style={{ width: `${hitProgress}%` }}
             />
+            {/* Progress markers */}
+            <div className="absolute inset-0 flex justify-between px-1 items-center pointer-events-none">
+              {[25, 50, 75].map(mark => (
+                <div key={mark} className="w-0.5 h-2 bg-background/30" style={{ marginLeft: `${mark}%` }} />
+              ))}
+            </div>
           </div>
 
-          {isHittingNote && (
-            <div className="text-pitch-perfect font-semibold animate-pulse">
-              Keep going! 🎯
+          <div className="text-xs text-muted-foreground">
+            {hitProgress < 10 ? "Zacznij śpiewać..." : 
+             hitProgress < 50 ? "Utrzymaj nutę..." :
+             hitProgress < 80 ? "Świetnie! Jeszcze chwilę..." :
+             "Prawie! 🔥"}
+          </div>
+        </div>
+
+        {/* User's Current Pitch with Direction Indicator */}
+        <div className="bg-card rounded-xl p-4 border border-border">
+          {currentPitch ? (
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Śpiewasz:</span>
+                <span className="text-2xl font-mono font-bold">
+                  {currentPitch.note}{currentPitch.octave}
+                </span>
+              </div>
+              
+              {/* Pitch Direction Indicator */}
+              <div className="h-10 flex items-center justify-center">
+                {getPitchIndicator()}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-4">
+              <div className="text-lg mb-1">🎤</div>
+              <div className="text-sm">Oczekiwanie na dźwięk...</div>
             </div>
           )}
         </div>
 
-        {/* Current Pitch Display */}
-        {currentPitch && (
-          <div className="bg-card rounded-xl p-4 border border-border text-center">
-            <div className="text-xs text-muted-foreground mb-1">You're singing:</div>
-            <div className="text-3xl font-mono font-bold">
-              {currentPitch.note}{currentPitch.octave}
-              <span className="text-lg text-muted-foreground ml-2">
-                {currentPitch.cents > 0 ? "+" : ""}{currentPitch.cents}¢
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Stats */}
-        <div className="bg-card rounded-xl p-4 border border-border">
+        <div className="bg-card rounded-xl p-3 border border-border">
           <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Streak:</span>
+            <span className="text-muted-foreground">Trafione nuty:</span>
             <span className="font-bold text-pitch-perfect">{successfulHits}</span>
-          </div>
-          <div className="flex justify-between items-center text-sm mt-2">
-            <span className="text-muted-foreground">Total notes:</span>
-            <span className="font-bold">{totalAttempts}</span>
           </div>
         </div>
 
@@ -229,7 +330,7 @@ export function HitTheNoteGame({
             className="flex-1 gap-2"
           >
             <Volume2 className={`w-5 h-5 ${isPlayingNote ? "animate-pulse" : ""}`} />
-            {isPlayingNote ? "Playing..." : "Replay Note"}
+            {isPlayingNote ? "Gram..." : "Powtórz nutę"}
           </Button>
           <Button
             onClick={skipNote}
@@ -238,7 +339,7 @@ export function HitTheNoteGame({
             className="gap-2 border-pitch-off text-pitch-off hover:bg-pitch-off/10"
           >
             <SkipForward className="w-5 h-5" />
-            Skip (-1 ❤️)
+            Pomiń
           </Button>
         </div>
       </div>
@@ -256,39 +357,35 @@ export function HitTheNoteGame({
         <div className="bg-card rounded-xl p-6 border border-border text-center space-y-4">
           <div className="text-6xl">🎮</div>
           <div>
-            <h2 className="text-2xl font-bold mb-2">Game Over!</h2>
-            <p className="text-sm text-muted-foreground">Nice try!</p>
+            <h2 className="text-2xl font-bold mb-2">Koniec gry!</h2>
+            <p className="text-sm text-muted-foreground">Świetna próba!</p>
           </div>
         </div>
 
         {/* Final Score */}
         <div className="bg-pitch-perfect/10 rounded-xl p-6 border border-pitch-perfect/30 text-center space-y-2">
-          <div className="text-sm text-muted-foreground">Final Score</div>
+          <div className="text-sm text-muted-foreground">Końcowy wynik</div>
           <div className="text-5xl font-bold text-pitch-perfect">{score}</div>
           <div className="text-sm text-muted-foreground">
-            {successfulHits} notes hit
+            {successfulHits} {successfulHits === 1 ? "nuta trafiona" : "nut trafionych"}
           </div>
         </div>
 
         {/* Statistics */}
         <div className="bg-card rounded-xl p-4 border border-border space-y-3">
-          <h3 className="font-semibold text-sm">Statistics:</h3>
+          <h3 className="font-semibold text-sm">Statystyki:</h3>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Notes Hit:</span>
+              <span className="text-sm text-muted-foreground">Trafione:</span>
               <span className="font-bold text-pitch-perfect">{successfulHits}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Notes Missed:</span>
+              <span className="text-sm text-muted-foreground">Pominięte:</span>
               <span className="font-bold text-pitch-off">{totalAttempts - successfulHits}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Accuracy:</span>
+              <span className="text-sm text-muted-foreground">Celność:</span>
               <span className="font-bold">{accuracy}%</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Total Score:</span>
-              <span className="font-bold text-pitch-perfect">{score}</span>
             </div>
           </div>
         </div>
@@ -296,7 +393,7 @@ export function HitTheNoteGame({
         {/* Recent Notes */}
         {attempts.length > 0 && (
           <div className="bg-card rounded-xl p-4 border border-border">
-            <h3 className="font-semibold text-sm mb-3">Last notes:</h3>
+            <h3 className="font-semibold text-sm mb-3">Ostatnie nuty:</h3>
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {attempts.slice(-5).reverse().map((attempt, idx) => (
                 <div
@@ -309,7 +406,7 @@ export function HitTheNoteGame({
                     {attempt.targetNote.note}{attempt.targetNote.octave}
                   </span>
                   <span>
-                    {attempt.success ? "✓ Hit" : "✗ Missed"}
+                    {attempt.success ? "✓ Trafione" : "✗ Pominięte"}
                   </span>
                 </div>
               ))}
@@ -330,7 +427,7 @@ export function HitTheNoteGame({
             className="flex-1 gap-2 bg-pitch-perfect text-background hover:opacity-90"
           >
             <Play className="w-5 h-5" />
-            Play Again
+            Zagraj ponownie
           </Button>
           <Button
             onClick={() => {
@@ -344,7 +441,7 @@ export function HitTheNoteGame({
             className="gap-2"
           >
             <Home className="w-5 h-5" />
-            Exit
+            Wyjdź
           </Button>
         </div>
       </div>
@@ -353,4 +450,3 @@ export function HitTheNoteGame({
 
   return null
 }
-

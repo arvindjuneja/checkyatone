@@ -6,8 +6,12 @@ import { type PitchData, noteToFrequency } from "@/lib/pitch-detector"
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-export type GamePhase = "ready" | "playing" | "gameover"
+// ~3 seconds at ~20 pitch detections per second
+const REQUIRED_CONSECUTIVE_HITS = 60
+
+export type GamePhase = "ready" | "playing" | "celebrating" | "gameover"
 export type OctaveRange = "low" | "medium" | "high"
+export type PitchDirection = "perfect" | "sharp" | "flat" | null
 
 export interface GameNote {
   note: string
@@ -22,6 +26,13 @@ export interface NoteAttempt {
   timeToHit: number
 }
 
+export interface PitchFeedback {
+  direction: PitchDirection
+  cents: number
+  userNote: string
+  userOctave: number
+}
+
 export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
   const [phase, setPhase] = useState<GamePhase>("ready")
   const [currentNote, setCurrentNote] = useState<GameNote | null>(null)
@@ -31,6 +42,7 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
   const [isPlayingNote, setIsPlayingNote] = useState(false)
   const [hitProgress, setHitProgress] = useState(0)
   const [isHittingNote, setIsHittingNote] = useState(false)
+  const [pitchFeedback, setPitchFeedback] = useState<PitchFeedback | null>(null)
 
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
   const noteStartTimeRef = useRef<number>(0)
@@ -129,6 +141,25 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     while (semitonesDiff < -6) semitonesDiff += 12
     
     const cents = Math.abs(semitonesDiff * 100)
+    const centsWithSign = semitonesDiff * 100
+
+    // Determine pitch direction for feedback
+    let direction: PitchDirection = null
+    if (cents <= 15) {
+      direction = "perfect"
+    } else if (centsWithSign > 0) {
+      direction = "sharp" // User is singing too high
+    } else {
+      direction = "flat" // User is singing too low
+    }
+
+    // Update pitch feedback for UI
+    setPitchFeedback({
+      direction,
+      cents: Math.round(centsWithSign),
+      userNote: pitch.note,
+      userOctave: pitch.octave,
+    })
 
     // Consider it correct if within 50 cents (half semitone)
     const isCorrect = cents <= 50
@@ -137,17 +168,22 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
       correctPitchCountRef.current++
       consecutiveCorrectRef.current++
     } else {
-      consecutiveCorrectRef.current = 0
+      // Allow some tolerance - only reset if very off
+      if (cents > 100) {
+        consecutiveCorrectRef.current = Math.max(0, consecutiveCorrectRef.current - 5)
+      } else {
+        consecutiveCorrectRef.current = Math.max(0, consecutiveCorrectRef.current - 1)
+      }
     }
 
-    // Update progress based on consecutive correct pitches
-    const progress = Math.min((consecutiveCorrectRef.current / 8) * 100, 100)
+    // Update progress based on consecutive correct pitches (~3 seconds)
+    const progress = Math.min((consecutiveCorrectRef.current / REQUIRED_CONSECUTIVE_HITS) * 100, 100)
     setHitProgress(progress)
-    setIsHittingNote(progress > 30)
+    setIsHittingNote(progress > 10)
 
     // If we have enough consecutive correct pitches, consider it a hit
-    if (consecutiveCorrectRef.current >= 8) {
-      // Success!
+    if (consecutiveCorrectRef.current >= REQUIRED_CONSECUTIVE_HITS) {
+      // Success! Enter celebration mode
       const timeToHit = Date.now() - noteStartTimeRef.current
       const avgCents = cents
 
@@ -159,23 +195,34 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
       }])
 
       setScore(prev => prev + 10)
+      setPhase("celebrating")
+      setHitProgress(100)
       
-      // Generate next note
-      const nextNote = generateRandomNote()
-      setCurrentNote(nextNote)
-      setHitProgress(0)
-      setIsHittingNote(false)
-      correctPitchCountRef.current = 0
-      totalPitchCountRef.current = 0
-      consecutiveCorrectRef.current = 0
-      noteStartTimeRef.current = Date.now()
-
-      // Play next note
+      // Play success fanfare! 🎉
       if (synthesizerRef.current) {
-        setTimeout(() => {
-          synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, 800)
-        }, 300)
+        synthesizerRef.current.playSuccessSound()
       }
+
+      // After celebration, move to next note
+      setTimeout(() => {
+        const nextNote = generateRandomNote()
+        setCurrentNote(nextNote)
+        setHitProgress(0)
+        setIsHittingNote(false)
+        setPitchFeedback(null)
+        correctPitchCountRef.current = 0
+        totalPitchCountRef.current = 0
+        consecutiveCorrectRef.current = 0
+        noteStartTimeRef.current = Date.now()
+        setPhase("playing")
+
+        // Play next note after a moment
+        if (synthesizerRef.current) {
+          setTimeout(() => {
+            synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, 800)
+          }, 200)
+        }
+      }, 1500) // 1.5s celebration time
     }
   }, [phase, currentNote, generateRandomNote])
 
@@ -225,6 +272,7 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     setAttempts([])
     setHitProgress(0)
     setIsHittingNote(false)
+    setPitchFeedback(null)
     correctPitchCountRef.current = 0
     totalPitchCountRef.current = 0
     consecutiveCorrectRef.current = 0
@@ -239,6 +287,7 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     isPlayingNote,
     hitProgress,
     isHittingNote,
+    pitchFeedback,
     startGame,
     playCurrentNote,
     processPitch,
