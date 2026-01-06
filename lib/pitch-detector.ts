@@ -101,8 +101,9 @@ export function detectPitch(
     freq: sampleRate / c.tau,
   }))
 
-  // CRITICAL: Filter out harmonics by preferring the lowest frequency (fundamental)
-  // Remove candidates that are near-perfect octaves of lower candidates
+  // Filter out both harmonics AND subharmonics
+  // Harmonics: frequencies that are 2x, 3x, 4x of a lower frequency
+  // Subharmonics: frequencies that are 0.5x of a higher frequency (octave errors)
   const filteredCandidates = candidateFreqs.filter((candidate, idx) => {
     // Check if this candidate is a harmonic of a lower frequency candidate
     for (let i = 0; i < idx; i++) {
@@ -116,6 +117,16 @@ export function detectPitch(
         return false // This is a harmonic, filter it out
       }
     }
+    
+    // Check if this candidate is a SUBHARMONIC (octave too low) of a higher freq candidate
+    for (let i = idx + 1; i < candidateFreqs.length; i++) {
+      const ratio = candidateFreqs[i].freq / candidate.freq
+      // If there's a candidate at 2x this frequency with good confidence, this might be subharmonic
+      if (Math.abs(ratio - 2) < 0.08 && candidateFreqs[i].value < candidate.value * 1.5) {
+        return false // This is likely a subharmonic, filter it out
+      }
+    }
+    
     return true
   })
 
@@ -150,13 +161,14 @@ export function detectPitch(
       }
     }
   } else if (filteredCandidates.length > 0) {
-    // When no previous frequency, prefer the lowest frequency (fundamental) with good confidence
+    // When no previous frequency, prefer frequencies in typical vocal range (100-400 Hz)
+    // with good confidence, avoiding both very low (subharmonics) and very high (harmonics)
     bestCandidate = filteredCandidates.reduce((a, b) => {
-      // Prefer lower frequency if confidence is similar
-      if (Math.abs(a.value - b.value) < 0.05) {
-        return a.freq < b.freq ? a : b
-      }
-      return a.value < b.value ? a : b
+      // Score based on confidence and proximity to vocal range center (~200 Hz)
+      const vocalCenter = 200
+      const scoreA = a.value + Math.abs(Math.log2(a.freq / vocalCenter)) * 0.1
+      const scoreB = b.value + Math.abs(Math.log2(b.freq / vocalCenter)) * 0.1
+      return scoreA < scoreB ? a : b
     })
   }
 

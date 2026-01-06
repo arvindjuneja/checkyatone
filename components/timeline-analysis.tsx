@@ -41,15 +41,30 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
     return () => window.removeEventListener('resize', updateWidth)
   }, [])
 
-  // Group pitches into segments
+  // Group pitches into segments with improved filtering
   const noteSegments = useMemo(() => {
     if (pitchHistory.length === 0) return []
 
+    // Filter out unrealistic frequencies (keep only C2-C6 range for vocals)
+    const realisticPitches = pitchHistory.filter(p => {
+      const semitone = p.octave * 12 + ALL_NOTES.indexOf(p.note)
+      return semitone >= 36 && semitone <= 84 // C2 to C6
+    })
+
+    if (realisticPitches.length === 0) return []
+
     const segments: NoteSegment[] = []
     let currentSegment: NoteSegment | null = null
-    const gapThreshold = 200
+    const gapThreshold = 300 // Increased for better grouping
+    const minSegmentDuration = 80 // Minimum 80ms to count as a note
 
     const finalizeSegment = (segment: NoteSegment) => {
+      // Only count segments that lasted long enough
+      const duration = segment.endTime - segment.startTime
+      if (duration < minSegmentDuration && segment.pitchData.length < 3) {
+        return // Skip tiny segments
+      }
+      
       const avgCents =
         segment.pitchData.reduce((sum, p) => sum + Math.abs(p.cents), 0) / segment.pitchData.length
       segment.avgCents = avgCents
@@ -57,7 +72,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
       segments.push(segment)
     }
 
-    pitchHistory.forEach((pitch) => {
+    realisticPitches.forEach((pitch) => {
       const noteKey = `${pitch.note}${pitch.octave}`
 
       if (
@@ -90,7 +105,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
     return segments
   }, [pitchHistory])
 
-  // Calculate note range from data
+  // Calculate note range from data (filtered to realistic vocal range)
   const noteRange = useMemo(() => {
     if (pitchHistory.length === 0) return { min: 48, max: 72 } // C3 to C5
 
@@ -99,20 +114,28 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
 
     pitchHistory.forEach((p) => {
       const semitone = p.octave * 12 + ALL_NOTES.indexOf(p.note)
-      minSemitone = Math.min(minSemitone, semitone)
-      maxSemitone = Math.max(maxSemitone, semitone)
+      // Only consider realistic vocal range (C2 to C6)
+      if (semitone >= 36 && semitone <= 84) {
+        minSemitone = Math.min(minSemitone, semitone)
+        maxSemitone = Math.max(maxSemitone, semitone)
+      }
     })
 
-    // Add padding
+    // If no valid pitches found, use default range
+    if (minSemitone === Number.POSITIVE_INFINITY) {
+      return { min: 48, max: 72 } // C3 to C5
+    }
+
+    // Add padding but stay within vocal range
     return {
-      min: Math.max(24, minSemitone - 3), // C1 minimum
-      max: Math.min(96, maxSemitone + 3), // C7 maximum
+      min: Math.max(36, minSemitone - 2), // C2 minimum
+      max: Math.min(84, maxSemitone + 2), // C6 maximum
     }
   }, [pitchHistory])
 
   const totalNotes = noteRange.max - noteRange.min + 1
-  const noteHeight = 28 // Responsive height
-  const pianoWidth = 60 // Wider for better piano visualization
+  const noteHeight = 24 // Slightly smaller for mobile
+  const pianoWidth = 50 // Narrower for mobile
 
   const totalDuration =
     pitchHistory.length > 0 ? pitchHistory[pitchHistory.length - 1].timestamp - pitchHistory[0].timestamp : 0
@@ -334,46 +357,49 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-        <div className="bg-secondary rounded-lg p-2.5 sm:p-3">
-          <div className="text-xl sm:text-2xl font-bold text-primary">{accuracyPercent}%</div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground">Dokładność</div>
+      {/* Stats - responsive grid */}
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 text-center">
+        <div className="bg-secondary rounded-lg p-2 sm:p-3">
+          <div className="text-lg sm:text-2xl font-bold text-primary">{accuracyPercent}%</div>
+          <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">Dokładność</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.75 0.14 50 / 0.15)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.75 0.14 50)" }}>
+        <div className="rounded-lg p-2 sm:p-3" style={{ backgroundColor: "oklch(0.75 0.14 50 / 0.15)" }}>
+          <div className="text-lg sm:text-2xl font-bold" style={{ color: "oklch(0.75 0.14 50)" }}>
             {stats.perfect}
           </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground">Idealnych</div>
+          <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">Idealnych</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.70 0.13 45 / 0.15)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.70 0.13 45)" }}>
+        <div className="rounded-lg p-2 sm:p-3" style={{ backgroundColor: "oklch(0.70 0.13 45 / 0.15)" }}>
+          <div className="text-lg sm:text-2xl font-bold" style={{ color: "oklch(0.70 0.13 45)" }}>
             {stats.good}
           </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground">Blisko</div>
+          <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">Blisko</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.65 0.12 35 / 0.15)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.65 0.12 35)" }}>
+        <div className="rounded-lg p-2 sm:p-3" style={{ backgroundColor: "oklch(0.65 0.12 35 / 0.15)" }}>
+          <div className="text-lg sm:text-2xl font-bold" style={{ color: "oklch(0.65 0.12 35)" }}>
             {stats.off}
           </div>
-          <div className="text-[10px] sm:text-xs text-muted-foreground">Fałsz</div>
+          <div className="text-[9px] sm:text-xs text-muted-foreground leading-tight">Fałsz</div>
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.75 0.14 50)" }} />
-          Idealnie (±10¢)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.70 0.13 45)" }} />
-          Blisko (±25¢)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.65 0.12 35)" }} />
-          Fałsz ({">"}25¢)
-        </span>
+      {/* Legend - compact for mobile */}
+      <div className="bg-card rounded-lg p-3 sm:p-4 border border-border">
+        <h4 className="font-medium text-sm mb-2">Wskazówki</h4>
+        <div className="space-y-1.5 text-[11px] sm:text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: "oklch(0.75 0.14 50)" }} />
+            <span><strong className="text-foreground">Zielony</strong> - śpiewasz idealnie w tonacji (±10 centów)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: "oklch(0.70 0.13 45)" }} />
+            <span><strong className="text-foreground">Żółtozielony</strong> - jesteś blisko, ale lekko odchylony (±25 centów)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: "oklch(0.65 0.12 35)" }} />
+            <span><strong className="text-foreground">Czerwony</strong> - znaczące odchylenie od nuty ({">"}25 centów)</span>
+          </div>
+        </div>
       </div>
     </div>
   )

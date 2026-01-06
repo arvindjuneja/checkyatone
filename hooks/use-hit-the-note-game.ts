@@ -6,8 +6,8 @@ import { type PitchData, noteToFrequency } from "@/lib/pitch-detector"
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-// ~3 seconds at ~20 pitch detections per second
-const REQUIRED_CONSECUTIVE_HITS = 60
+// ~5 seconds at ~20 pitch detections per second
+const REQUIRED_CONSECUTIVE_HITS = 100
 
 export type GamePhase = "ready" | "playing" | "celebrating" | "gameover"
 export type OctaveRange = "low" | "medium" | "high"
