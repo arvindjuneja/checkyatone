@@ -49,59 +49,72 @@ export default function VocalAnalyzerPage() {
   return (
     <main className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-              <Music2 className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-bold text-foreground">Vocal Coach</h1>
-              <a
-                href="https://instagram.com/arvindspiewa"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                @arvindspiewa
-              </a>
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border">
+        <div className="max-w-lg mx-auto">
+          {/* Logo and Title */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-pitch-perfect flex items-center justify-center shadow-sm">
+                <Music2 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg text-foreground">Vocal Coach</h1>
+                <a
+                  href="https://instagram.com/arvindspiewa"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  @arvindspiewa
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex bg-secondary rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab("live")}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeTab === "live" ? "bg-background text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Na żywo
-            </button>
-            <button
-              onClick={() => setActiveTab("training")}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeTab === "training" ? "bg-background text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Trenuj
-            </button>
-            <button
-              onClick={() => setActiveTab("analysis")}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeTab === "analysis" ? "bg-background text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Analiza
-            </button>
-            <button
-              onClick={() => setActiveTab("why")}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                activeTab === "why" ? "bg-background text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              Po co?
-            </button>
+          {/* Tab Navigation */}
+          <div className="px-2 pb-2">
+            <div className="flex bg-secondary/50 rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setActiveTab("live")}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === "live" 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Na żywo
+              </button>
+              <button
+                onClick={() => setActiveTab("training")}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === "training" 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Trenuj
+              </button>
+              <button
+                onClick={() => setActiveTab("analysis")}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === "analysis" 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Analiza
+              </button>
+              <button
+                onClick={() => setActiveTab("why")}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === "why" 
+                    ? "bg-background text-foreground shadow-sm" 
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Po co?
+              </button>
+            </div>
           </div>
         </div>
       </header>
