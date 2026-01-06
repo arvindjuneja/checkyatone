@@ -54,8 +54,8 @@ export default function VocalAnalyzerPage() {
           {/* Logo and Title */}
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-pitch-perfect flex items-center justify-center shadow-sm">
-                <Music2 className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-pitch-perfect flex items-center justify-center shadow-sm">
+                <Music2 className="w-5 h-5 text-background" />
               </div>
               <div>
                 <h1 className="font-bold text-lg text-foreground">Vocal Coach</h1>

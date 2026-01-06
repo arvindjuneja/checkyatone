@@ -242,12 +242,12 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         const colors = {
           perfect: {
-            fill: "oklch(0.75 0.14 50 / 0.85)",
-            stroke: "oklch(0.78 0.16 50)",
-            glow: "oklch(0.78 0.16 50 / 0.3)",
+            fill: "oklch(0.75 0.15 145 / 0.85)",
+            stroke: "oklch(0.78 0.16 145)",
+            glow: "oklch(0.78 0.16 145 / 0.3)",
           },
-          good: { fill: "oklch(0.70 0.13 45 / 0.85)", stroke: "oklch(0.74 0.15 45)", glow: "oklch(0.74 0.15 45 / 0.3)" },
-          off: { fill: "oklch(0.65 0.12 35 / 0.85)", stroke: "oklch(0.68 0.14 35)", glow: "oklch(0.68 0.14 35 / 0.3)" },
+          good: { fill: "oklch(0.70 0.13 80 / 0.85)", stroke: "oklch(0.74 0.15 80)", glow: "oklch(0.74 0.15 80 / 0.3)" },
+          off: { fill: "oklch(0.65 0.15 25 / 0.85)", stroke: "oklch(0.68 0.17 25)", glow: "oklch(0.68 0.17 25 / 0.3)" },
         }
         const color = colors[dominantAccuracy]
 
@@ -292,7 +292,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         // Center pitch deviation line
         ctx.beginPath()
-        ctx.strokeStyle = "oklch(0.78 0.13 48)"
+        ctx.strokeStyle = "oklch(0.78 0.13 145)"
         ctx.lineWidth = 1.5
         ribbon.points.forEach((p, i) => {
           const centsOffset = (p.cents / 50) * (ribbonHeight / 2)
@@ -312,7 +312,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
         if (semitone >= minSemitone && semitone <= maxSemitone) {
           const y = (maxSemitone - semitone) * noteHeight + noteHeight / 2
 
-          ctx.strokeStyle = "oklch(0.75 0.14 50 / 0.4)"
+          ctx.strokeStyle = "oklch(0.75 0.15 145 / 0.4)"
           ctx.lineWidth = 1
           ctx.setLineDash([4, 4])
           ctx.beginPath()
@@ -323,11 +323,11 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
           ctx.beginPath()
           ctx.arc(width - 12, y, 8, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.75 0.14 50)"
+          ctx.fillStyle = "oklch(0.75 0.15 145)"
           ctx.fill()
           ctx.beginPath()
           ctx.arc(width - 12, y, 4, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.95 0.05 50)"
+          ctx.fillStyle = "oklch(0.95 0.05 145)"
           ctx.fill()
         }
       }
@@ -338,7 +338,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       const pulse = (Math.sin(Date.now() / 200) + 1) / 2
       ctx.beginPath()
       ctx.arc(width - 12, 12, 4 + pulse * 2, 0, Math.PI * 2)
-      ctx.fillStyle = `oklch(0.65 0.12 35 / ${0.7 + pulse * 0.3})`
+      ctx.fillStyle = `oklch(0.65 0.15 25 / ${0.7 + pulse * 0.3})`
       ctx.fill()
     }
   }, [pitchHistory, currentPitch, isRecording])
