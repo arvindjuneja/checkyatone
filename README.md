@@ -1,36 +1,215 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎵 VocalViz - Real-Time Vocal Pitch Analyzer
 
-## Getting Started
+VocalViz is a modern web application for real-time vocal pitch analysis and visualization. Perfect for singers, vocal coaches, and anyone looking to improve their pitch accuracy.
 
-First, run the development server:
+![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)
+![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-4.1-38bdf8?style=flat-square&logo=tailwind-css)
 
+## ✨ Features
+
+### 🎤 Real-Time Analysis
+- **Live Pitch Detection**: Analyzes your voice in real-time using the YIN algorithm
+- **Note Recognition**: Detects the exact note (C, C#, D, etc.) and octave you're singing
+- **Pitch Accuracy**: Shows how many cents off you are from the perfect pitch
+- **Visual Feedback**: Color-coded indicators (green = perfect, yellow = close, red = off)
+
+### 📊 Visual Components
+- **Pitch Visualizer**: Real-time waveform display of pitch history
+- **Current Note Display**: Large, easy-to-read note indicator
+- **Timeline Analysis**: Historical view of your entire recording session
+- **Recording Controls**: Start, stop, pause, and reset functionality
+
+### ⚙️ Customizable Settings
+- **Gain Control**: Adjustable microphone input gain (0.5x - 5.0x)
+- **Sensitivity Settings**: Customize the detection threshold (0.001 - 0.01)
+- **Audio Processing**: Optimized for vocal frequency range (65 Hz - 2100 Hz / C2 - C7)
+
+### 🎯 Pitch Accuracy Levels
+- **Perfect** (Green): Within ±10 cents of target note
+- **Good** (Yellow): Within ±25 cents of target note
+- **Off** (Red): More than ±25 cents from target note
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18 or higher
+- npm, yarn, pnpm, or bun package manager
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd voice
+```
+
+2. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+3. Run the development server:
 ```bash
 npm run dev
 # or
 yarn dev
 # or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Building for Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+This will create an optimized production build in the `out` directory (static export).
 
-To learn more about Next.js, take a look at the following resources:
+## 🎮 How to Use
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Grant Microphone Access**: Allow the browser to access your microphone when prompted
+2. **Adjust Settings**: Configure gain and sensitivity based on your microphone and environment
+3. **Start Recording**: Click the record button to begin pitch analysis
+4. **Sing or Hum**: The app will display your current note and pitch accuracy in real-time
+5. **View Analysis**: Switch to the "Analiza" tab to see your complete pitch history
+6. **Reset**: Clear the recording to start a new session
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 Technical Details
 
-## Deploy on Vercel
+### Architecture
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+voice/
+├── app/                    # Next.js app directory
+│   ├── page.tsx           # Main application page
+│   └── globals.css        # Global styles
+├── components/            # React components
+│   ├── audio-settings.tsx
+│   ├── current-note-display.tsx
+│   ├── pitch-visualizer.tsx
+│   ├── recording-controls.tsx
+│   ├── timeline-analysis.tsx
+│   └── ui/               # Reusable UI components
+├── hooks/
+│   └── use-audio-recorder.ts  # Audio recording & processing hook
+├── lib/
+│   ├── pitch-detector.ts     # YIN algorithm implementation
+│   └── utils.ts              # Utility functions
+└── public/                   # Static assets
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Pitch Detection Algorithm
+
+VocalViz uses the **YIN algorithm** for fundamental frequency estimation:
+
+1. **Audio Capture**: Uses Web Audio API to capture microphone input
+2. **Signal Processing**:
+   - FFT size: 2048 samples
+   - No smoothing (smoothingTimeConstant = 0)
+   - Disabled echo cancellation, noise suppression, and auto-gain control
+3. **YIN Algorithm**:
+   - Difference function calculation
+   - Cumulative mean normalized difference
+   - Threshold-based period detection (0.25)
+   - Parabolic interpolation for sub-sample accuracy
+4. **Harmonic Rejection**:
+   - Filters out overtones (2x, 3x, 4x harmonics)
+   - Frequency history tracking with median filtering
+   - Prevents octave jumping
+5. **Note Conversion**: Converts frequency to musical note using A4 = 440 Hz reference
+
+### Key Technologies
+
+- **Next.js 16**: React framework with static export
+- **React 19**: UI library with hooks
+- **TypeScript**: Type-safe development
+- **Tailwind CSS 4**: Utility-first styling
+- **Web Audio API**: Real-time audio processing
+- **Radix UI**: Accessible component primitives
+- **Lucide React**: Beautiful icon set
+- **Recharts**: Data visualization
+
+## 📦 Deployment
+
+### Vercel (Recommended)
+
+The easiest way to deploy VocalViz:
+
+```bash
+npm install -g vercel
+vercel
+```
+
+### Cloudflare Pages
+
+1. **Build command**: `npm run build`
+2. **Build output directory**: `out`
+3. **Framework preset**: Next.js (Static HTML Export)
+
+### Netlify
+
+1. **Build command**: `npm run build`
+2. **Publish directory**: `out`
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
+
+## 🎨 Browser Compatibility
+
+- Chrome/Edge 89+ (recommended)
+- Firefox 88+
+- Safari 14.1+
+- Opera 75+
+
+**Note**: Requires browser support for:
+- Web Audio API
+- MediaDevices API (getUserMedia)
+- ES2020+ features
+
+## 🔒 Privacy
+
+VocalViz runs entirely in your browser. No audio data is sent to any server. All processing happens locally on your device.
+
+## 🐛 Troubleshooting
+
+### Microphone Not Working
+- Check browser permissions for microphone access
+- Ensure microphone is not being used by another application
+- Try refreshing the page and granting permissions again
+
+### Inaccurate Pitch Detection
+- Adjust the **Gain** setting (increase if too quiet, decrease if too loud)
+- Adjust the **Sensitivity** setting (increase for quieter environments)
+- Sing closer to the microphone
+- Reduce background noise
+
+### Octave Jumping
+- Decrease sensitivity
+- Sing with a more stable tone
+- Ensure microphone gain is not too high (causing clipping)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is open source and available under the MIT License.
+
+## 🙏 Acknowledgments
+
+- YIN pitch detection algorithm by Alain de Cheveigné and Hideki Kawahara
+- Built with [v0.dev](https://v0.dev) components
+- Icons by [Lucide](https://lucide.dev)
+
+---
+
+Made with ❤️ for singers and vocal enthusiasts
