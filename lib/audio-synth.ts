@@ -16,7 +16,7 @@ export class AudioSynthesizer {
     if (typeof window !== "undefined") {
       this.audioContext = new AudioContext()
       this.masterGain = this.audioContext.createGain()
-      this.masterGain.gain.value = 0.3 // Master volume
+      this.masterGain.gain.value = 0.7 // Master volume - increased for better audibility
       this.masterGain.connect(this.audioContext.destination)
     }
   }

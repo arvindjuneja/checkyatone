@@ -117,8 +117,17 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     totalPitchCountRef.current++
 
     // Calculate how close the pitch is to the target note
+    // Allow octave-agnostic matching since pitch detection can sometimes
+    // detect harmonics instead of the fundamental, and people sing in different octaves
     const targetFreq = currentNote.frequency
-    const semitonesDiff = 12 * Math.log2(pitch.frequency / targetFreq)
+    let semitonesDiff = 12 * Math.log2(pitch.frequency / targetFreq)
+    
+    // Normalize to within ±6 semitones (allow any octave of the same note)
+    // This handles cases where pitch detector catches harmonics (2x, 4x frequency)
+    // or when singers naturally transpose to their comfortable octave
+    while (semitonesDiff > 6) semitonesDiff -= 12
+    while (semitonesDiff < -6) semitonesDiff += 12
+    
     const cents = Math.abs(semitonesDiff * 100)
 
     // Consider it correct if within 50 cents (half semitone)
