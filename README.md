@@ -15,6 +15,24 @@ Vocal Coach is a modern web application for real-time vocal pitch analysis and v
 - **Pitch Accuracy**: Shows how many cents off you are from the perfect pitch
 - **Visual Feedback**: Color-coded indicators (green = perfect, yellow = close, red = off)
 
+### 🎓 Training Mode
+- **Structured Exercises**: 8 vocal exercises including scales, arpeggios, and intervals
+- **Reference Audio Playback**: Listen to the target notes before singing them
+- **Accuracy Feedback**: Get detailed analysis of your performance for each note
+- **Difficulty Levels**: Filter exercises by difficulty (Easy, Medium, Hard)
+  - **Easy**: Simple intervals like major third (C-E), perfect fourth (C-F)
+  - **Medium**: Perfect fifth, arpeggios, octave jumps
+  - **Hard**: Full scales (C major up/down, A minor)
+- **Performance Scoring**: See your accuracy percentage and cents deviation per note
+
+### 🎮 Hit the Note Game
+- **Random Note Challenge**: Hit randomly generated notes as fast as you can
+- **Lives System**: 3 lives - lose one when you skip a note
+- **Scoring**: Earn 10 points for each correct note
+- **Real-time Progress**: Visual progress bar shows how close you are to hitting the note
+- **Statistics**: Track your streak, accuracy, and total score
+- **Replay Option**: Play any note again if you need to hear it
+
 ### 📊 Visual Components
 - **Pitch Visualizer**: Real-time waveform display of pitch history
 - **Current Note Display**: Large, easy-to-read note indicator
@@ -76,12 +94,31 @@ This will create an optimized production build in the `out` directory (static ex
 
 ## 🎮 How to Use
 
+### Live Mode
 1. **Grant Microphone Access**: Allow the browser to access your microphone when prompted
 2. **Adjust Settings**: Configure gain and sensitivity based on your microphone and environment
 3. **Start Recording**: Click the record button to begin pitch analysis
 4. **Sing or Hum**: The app will display your current note and pitch accuracy in real-time
 5. **View Analysis**: Switch to the "Analiza" tab to see your complete pitch history
 6. **Reset**: Clear the recording to start a new session
+
+### Training Mode
+1. **Select Mode**: Choose between "Ćwiczenia" (Exercises) or "Hit the Note!" (Game)
+2. **Filter by Difficulty**: Use the difficulty filter to show only exercises you're comfortable with
+3. **Listen & Repeat**: 
+   - Exercises: Listen to the reference notes, then sing them back
+   - Game: Hit random notes as fast as possible
+4. **Get Feedback**: See detailed accuracy results and scoring
+
+### Available Exercises
+- **Tercja wielka** (Easy) - Major third interval
+- **Kwarta czysta** (Easy) - Perfect fourth interval
+- **Kwinta czysta** (Medium) - Perfect fifth interval
+- **Arpeggio C-dur** (Medium) - C major arpeggio
+- **Skok oktawowy** (Medium) - Octave jump
+- **Gama C-dur w górę** (Hard) - C major scale ascending
+- **Gama C-dur w dół** (Hard) - C major scale descending
+- **Gama a-moll** (Hard) - A minor natural scale
 
 ## 🔧 Technical Details
 
@@ -98,11 +135,18 @@ voice/
 │   ├── pitch-visualizer.tsx
 │   ├── recording-controls.tsx
 │   ├── timeline-analysis.tsx
+│   ├── training-hub.tsx       # Training mode menu
+│   ├── training-mode.tsx      # Exercise training component
+│   ├── hit-the-note-game.tsx  # Game mode component
 │   └── ui/               # Reusable UI components
 ├── hooks/
-│   └── use-audio-recorder.ts  # Audio recording & processing hook
+│   ├── use-audio-recorder.ts     # Audio recording & processing hook
+│   ├── use-training-mode.ts      # Training exercises logic
+│   └── use-hit-the-note-game.ts  # Game state management
 ├── lib/
 │   ├── pitch-detector.ts     # YIN algorithm implementation
+│   ├── audio-synth.ts        # Audio synthesis for reference tones
+│   ├── analytics.ts          # Analytics tracking
 │   └── utils.ts              # Utility functions
 └── public/                   # Static assets
 ```

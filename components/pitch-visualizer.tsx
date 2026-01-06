@@ -93,7 +93,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
     const width = rect.width
     const height = rect.height
-    const pianoWidth = 45
+    const pianoWidth = 60
     const timelineWidth = width - pianoWidth
 
     // Background
@@ -117,9 +117,39 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       const y = (maxSemitone - semitone) * noteHeight
       const isBlack = note.includes("#")
 
-      // Piano key
-      ctx.fillStyle = isBlack ? "oklch(0.18 0.01 270)" : "oklch(0.85 0.01 270)"
+      // White key background
+      const gradient = ctx.createLinearGradient(0, 0, pianoWidth - 2, 0)
+      if (isBlack) {
+        gradient.addColorStop(0, "oklch(0.15 0.01 270)")
+        gradient.addColorStop(1, "oklch(0.18 0.01 270)")
+      } else {
+        gradient.addColorStop(0, "oklch(0.92 0.01 270)")
+        gradient.addColorStop(1, "oklch(0.88 0.01 270)")
+      }
+      ctx.fillStyle = gradient
       ctx.fillRect(0, y, pianoWidth - 2, noteHeight - 1)
+
+      // Border for white keys
+      if (!isBlack) {
+        ctx.strokeStyle = "oklch(0.75 0.01 270)"
+        ctx.lineWidth = 1
+        ctx.strokeRect(0, y, pianoWidth - 2, noteHeight - 1)
+      }
+
+      // Black key overlay (shorter width)
+      if (isBlack) {
+        const blackKeyWidth = pianoWidth * 0.6
+        const blackGradient = ctx.createLinearGradient(pianoWidth - blackKeyWidth - 2, 0, pianoWidth - 2, 0)
+        blackGradient.addColorStop(0, "oklch(0.12 0.01 270)")
+        blackGradient.addColorStop(1, "oklch(0.08 0.01 270)")
+        ctx.fillStyle = blackGradient
+        ctx.fillRect(pianoWidth - blackKeyWidth - 2, y, blackKeyWidth, noteHeight - 1)
+        
+        // Black key border
+        ctx.strokeStyle = "oklch(0.05 0.01 270)"
+        ctx.lineWidth = 1
+        ctx.strokeRect(pianoWidth - blackKeyWidth - 2, y, blackKeyWidth, noteHeight - 1)
+      }
 
       // Lane background
       ctx.fillStyle = isBlack ? "oklch(0.10 0.01 270)" : "oklch(0.14 0.01 270)"
@@ -133,14 +163,15 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       ctx.lineTo(width, y + noteHeight)
       ctx.stroke()
 
-      // Note label - show all C notes and natural notes when zoomed in enough
+      // Note label
       const showLabel = note === "C" || (noteHeight > 15 && !isBlack)
       if (showLabel) {
-        ctx.fillStyle = isBlack ? "oklch(0.7 0 0)" : "oklch(0.25 0 0)"
+        ctx.fillStyle = isBlack ? "oklch(0.65 0 0)" : "oklch(0.30 0 0)"
         ctx.font = noteHeight > 12 ? "bold 10px Geist" : "bold 8px Geist"
-        ctx.textAlign = "center"
+        ctx.textAlign = "right"
         ctx.textBaseline = "middle"
-        ctx.fillText(`${note}${octave}`, pianoWidth / 2, y + noteHeight / 2)
+        const labelX = isBlack ? pianoWidth - 6 : pianoWidth - 10
+        ctx.fillText(`${note}${octave}`, labelX, y + noteHeight / 2)
       }
     }
 
@@ -211,12 +242,12 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         const colors = {
           perfect: {
-            fill: "oklch(0.55 0.20 145 / 0.8)",
-            stroke: "oklch(0.70 0.22 145)",
-            glow: "oklch(0.70 0.22 145 / 0.3)",
+            fill: "oklch(0.75 0.14 50 / 0.85)",
+            stroke: "oklch(0.78 0.16 50)",
+            glow: "oklch(0.78 0.16 50 / 0.3)",
           },
-          good: { fill: "oklch(0.60 0.18 70 / 0.8)", stroke: "oklch(0.75 0.20 70)", glow: "oklch(0.75 0.20 70 / 0.3)" },
-          off: { fill: "oklch(0.50 0.22 25 / 0.8)", stroke: "oklch(0.65 0.24 25)", glow: "oklch(0.65 0.24 25 / 0.3)" },
+          good: { fill: "oklch(0.70 0.13 45 / 0.85)", stroke: "oklch(0.74 0.15 45)", glow: "oklch(0.74 0.15 45 / 0.3)" },
+          off: { fill: "oklch(0.65 0.12 35 / 0.85)", stroke: "oklch(0.68 0.14 35)", glow: "oklch(0.68 0.14 35 / 0.3)" },
         }
         const color = colors[dominantAccuracy]
 
@@ -261,7 +292,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         // Center pitch deviation line
         ctx.beginPath()
-        ctx.strokeStyle = "oklch(0.90 0.15 90)"
+        ctx.strokeStyle = "oklch(0.78 0.13 48)"
         ctx.lineWidth = 1.5
         ribbon.points.forEach((p, i) => {
           const centsOffset = (p.cents / 50) * (ribbonHeight / 2)
@@ -281,7 +312,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
         if (semitone >= minSemitone && semitone <= maxSemitone) {
           const y = (maxSemitone - semitone) * noteHeight + noteHeight / 2
 
-          ctx.strokeStyle = "oklch(0.75 0.20 180 / 0.3)"
+          ctx.strokeStyle = "oklch(0.75 0.14 50 / 0.4)"
           ctx.lineWidth = 1
           ctx.setLineDash([4, 4])
           ctx.beginPath()
@@ -292,11 +323,11 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
           ctx.beginPath()
           ctx.arc(width - 12, y, 8, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.75 0.20 180)"
+          ctx.fillStyle = "oklch(0.75 0.14 50)"
           ctx.fill()
           ctx.beginPath()
           ctx.arc(width - 12, y, 4, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.95 0.05 180)"
+          ctx.fillStyle = "oklch(0.95 0.05 50)"
           ctx.fill()
         }
       }
@@ -307,7 +338,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       const pulse = (Math.sin(Date.now() / 200) + 1) / 2
       ctx.beginPath()
       ctx.arc(width - 12, 12, 4 + pulse * 2, 0, Math.PI * 2)
-      ctx.fillStyle = `oklch(0.60 0.24 25 / ${0.7 + pulse * 0.3})`
+      ctx.fillStyle = `oklch(0.65 0.12 35 / ${0.7 + pulse * 0.3})`
       ctx.fill()
     }
   }, [pitchHistory, currentPitch, isRecording])

@@ -31,7 +31,7 @@ export default function VocalAnalyzerPage() {
     updateSensitivity,
   } = useAudioRecorder()
 
-  const [activeTab, setActiveTab] = useState<"live" | "analysis" | "training">("live")
+  const [activeTab, setActiveTab] = useState<"live" | "analysis" | "training" | "why">("live")
 
   // Track page views when tab changes
   useEffect(() => {
@@ -39,6 +39,7 @@ export default function VocalAnalyzerPage() {
       live: "Vocal Coach - Na żywo",
       analysis: "Vocal Coach - Analiza",
       training: "Vocal Coach - Trenuj",
+      why: "Vocal Coach - Po co?",
     }
     const title = titles[activeTab]
     document.title = title
@@ -56,7 +57,14 @@ export default function VocalAnalyzerPage() {
             </div>
             <div>
               <h1 className="font-bold text-foreground">Vocal Coach</h1>
-              <p className="text-xs text-muted-foreground">Analiza wokalna</p>
+              <a
+                href="https://instagram.com/arvindspiewa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                @arvindspiewa
+              </a>
             </div>
           </div>
 
@@ -85,6 +93,14 @@ export default function VocalAnalyzerPage() {
               }`}
             >
               Analiza
+            </button>
+            <button
+              onClick={() => setActiveTab("why")}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                activeTab === "why" ? "bg-background text-foreground" : "text-muted-foreground"
+              }`}
+            >
+              Po co?
             </button>
           </div>
         </div>
@@ -145,6 +161,25 @@ export default function VocalAnalyzerPage() {
               onStopRecording={stopRecording}
             />
           </>
+        ) : activeTab === "why" ? (
+          <>
+            {/* Why Section */}
+            <div className="bg-card rounded-xl p-6 border border-border space-y-6">
+              <h2 className="text-2xl font-bold">Po co?</h2>
+              <p className="text-base leading-relaxed">
+                Cześć, jestem Arvind i uważam, że znalezienie komfortu z własnym głosem - i czerpanie radości z wydawania z siebie dźwięków - są warte tego, żeby codziennie poswięcić chwilę na pracy nad głosem. Wkrótce dodam tu wyszukiwarkę nauczycieli śpiewu, bo warto. Poniżej krótka relacja z jedynej lekcji jaką w życiu wziąłem i którą doskonale wspominam.
+              </p>
+              <div className="aspect-video w-full">
+                <iframe
+                  className="w-full h-full rounded-lg"
+                  src="https://www.youtube.com/embed/qu70CHn2mdU"
+                  title="YouTube video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </>
         ) : (
           <>
             {/* Timeline Analysis */}
@@ -157,19 +192,19 @@ export default function VocalAnalyzerPage() {
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-perfect mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-perfect">Zielony</strong> - śpiewasz idealnie w tonacji (±10 centów)
+                    <strong className="text-pitch-perfect">Jasny pomarańczowy</strong> - śpiewasz idealnie w tonacji (±10 centów)
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-good mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-good">Żółty</strong> - jesteś blisko, ale lekko odchylony (±25 centów)
+                    <strong className="text-pitch-good">Średni pomarańczowy</strong> - jesteś blisko, ale lekko odchylony (±25 centów)
                   </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="w-2 h-2 rounded-full bg-pitch-off mt-1.5 shrink-0" />
                   <span>
-                    <strong className="text-pitch-off">Czerwony</strong> - znaczące odchylenie od nuty ({">"}25 centów)
+                    <strong className="text-pitch-off">Ciemny pomarańczowy</strong> - znaczące odchylenie od nuty ({">"}25 centów)
                   </span>
                 </li>
               </ul>

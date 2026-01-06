@@ -88,11 +88,14 @@ export class AudioSynthesizer {
 }
 
 // Training exercise definitions
+export type DifficultyLevel = "easy" | "medium" | "hard"
+
 export interface TrainingExercise {
   id: string
   name: string
   description: string
   notes: ToneNote[]
+  difficulty: DifficultyLevel
 }
 
 export const TRAINING_EXERCISES: TrainingExercise[] = [
@@ -100,6 +103,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "c-major-scale-up",
     name: "Gama C-dur w górę",
     description: "Zaśpiewaj gamę C-dur od C4 do C5",
+    difficulty: "hard",
     notes: [
       { note: "C", octave: 4, duration: 600 },
       { note: "D", octave: 4, duration: 600 },
@@ -115,6 +119,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "c-major-scale-down",
     name: "Gama C-dur w dół",
     description: "Zaśpiewaj gamę C-dur od C5 do C4",
+    difficulty: "hard",
     notes: [
       { note: "C", octave: 5, duration: 600 },
       { note: "B", octave: 4, duration: 600 },
@@ -130,6 +135,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "a-minor-scale",
     name: "Gama a-moll",
     description: "Zaśpiewaj gamę a-moll naturalną",
+    difficulty: "hard",
     notes: [
       { note: "A", octave: 4, duration: 600 },
       { note: "B", octave: 4, duration: 600 },
@@ -145,6 +151,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "c-major-arpeggio",
     name: "Arpeggio C-dur",
     description: "Zaśpiewaj arpeggio akordu C-dur",
+    difficulty: "medium",
     notes: [
       { note: "C", octave: 4, duration: 600 },
       { note: "E", octave: 4, duration: 600 },
@@ -156,6 +163,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "perfect-fifth",
     name: "Kwinta czysta",
     description: "Zaśpiewaj kwintę czystą (C-G)",
+    difficulty: "medium",
     notes: [
       { note: "C", octave: 4, duration: 800 },
       { note: "G", octave: 4, duration: 800 },
@@ -165,6 +173,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "perfect-fourth",
     name: "Kwarta czysta",
     description: "Zaśpiewaj kwartę czystą (C-F)",
+    difficulty: "easy",
     notes: [
       { note: "C", octave: 4, duration: 800 },
       { note: "F", octave: 4, duration: 800 },
@@ -174,6 +183,7 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "major-third",
     name: "Tercja wielka",
     description: "Zaśpiewaj tercję wielką (C-E)",
+    difficulty: "easy",
     notes: [
       { note: "C", octave: 4, duration: 800 },
       { note: "E", octave: 4, duration: 800 },
@@ -183,10 +193,29 @@ export const TRAINING_EXERCISES: TrainingExercise[] = [
     id: "octave-jump",
     name: "Skok oktawowy",
     description: "Zaśpiewaj oktawę (C4-C5)",
+    difficulty: "medium",
     notes: [
       { note: "C", octave: 4, duration: 800 },
       { note: "C", octave: 5, duration: 800 },
     ],
   },
 ]
+
+export function getDifficultyLabel(difficulty: DifficultyLevel): string {
+  const labels = {
+    easy: "Łatwy",
+    medium: "Średni",
+    hard: "Trudny",
+  }
+  return labels[difficulty]
+}
+
+export function getDifficultyColor(difficulty: DifficultyLevel): string {
+  const colors = {
+    easy: "text-pitch-perfect",
+    medium: "text-pitch-good",
+    hard: "text-pitch-off",
+  }
+  return colors[difficulty]
+}
 

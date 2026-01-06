@@ -103,8 +103,8 @@ export function TrainingHub({
           className="bg-card hover:bg-accent rounded-xl p-6 border border-border text-left transition-all hover:scale-[1.02]"
         >
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-pitch-good to-pitch-perfect flex items-center justify-center shrink-0">
-              <Gamepad2 className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-lg bg-pitch-perfect/20 border border-pitch-perfect/40 flex items-center justify-center shrink-0">
+              <Gamepad2 className="w-6 h-6 text-pitch-perfect" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg mb-1">Hit the Note! 🎮</h3>
@@ -112,13 +112,13 @@ export function TrainingHub({
                 Gra zręcznościowa - trafiaj w losowe nuty i zdobywaj punkty
               </p>
               <div className="flex flex-wrap gap-1">
-                <span className="text-xs px-2 py-1 bg-gradient-to-r from-pitch-good/20 to-pitch-perfect/20 rounded">
+                <span className="text-xs px-2 py-1 bg-pitch-perfect/15 text-pitch-perfect rounded">
                   3 życia
                 </span>
-                <span className="text-xs px-2 py-1 bg-gradient-to-r from-pitch-good/20 to-pitch-perfect/20 rounded">
+                <span className="text-xs px-2 py-1 bg-pitch-perfect/15 text-pitch-perfect rounded">
                   Losowe nuty
                 </span>
-                <span className="text-xs px-2 py-1 bg-gradient-to-r from-pitch-good/20 to-pitch-perfect/20 rounded">
+                <span className="text-xs px-2 py-1 bg-pitch-perfect/15 text-pitch-perfect rounded">
                   Scoring
                 </span>
               </div>

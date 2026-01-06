@@ -1,8 +1,8 @@
 "use client"
 
-import { useRef, useState, useMemo } from "react"
+import { useRef, useState, useMemo, useEffect } from "react"
 import type { PitchData } from "@/lib/pitch-detector"
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react"
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from "lucide-react"
 import { Button } from "./ui/button"
 
 interface TimelineAnalysisProps {
@@ -27,6 +27,19 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(1)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Measure container width
+  useEffect(() => {
+    const updateWidth = () => {
+      if (timelineRef.current) {
+        setContainerWidth(timelineRef.current.clientWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [])
 
   // Group pitches into segments
   const noteSegments = useMemo(() => {
@@ -99,7 +112,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
 
   const totalNotes = noteRange.max - noteRange.min + 1
   const noteHeight = 28 // Responsive height
-  const pianoWidth = 44 // Narrower for mobile
+  const pianoWidth = 60 // Wider for better piano visualization
 
   const totalDuration =
     pitchHistory.length > 0 ? pitchHistory[pitchHistory.length - 1].timestamp - pitchHistory[0].timestamp : 0
@@ -111,6 +124,20 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
     if (!container) return
     const scrollAmount = 200
     container.scrollBy({ left: direction === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" })
+  }
+
+  const fitAll = () => {
+    if (totalDuration === 0 || containerWidth === 0) return
+    // Calculate zoom needed to fit entire duration in container
+    const requiredWidth = totalDuration * 0.12 + 100
+    const fitZoom = (containerWidth / requiredWidth)
+    setZoom(Math.max(0.1, Math.min(3, fitZoom)))
+    // Scroll to start
+    setTimeout(() => {
+      if (timelineRef.current) {
+        timelineRef.current.scrollTo({ left: 0, behavior: "smooth" })
+      }
+    }, 50)
   }
 
   // Stats
@@ -148,7 +175,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
+            onClick={() => setZoom((z) => Math.max(0.1, z - 0.25))}
             className="h-8 w-8 sm:h-9 sm:w-9"
           >
             <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -156,6 +183,15 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
           <span className="text-[10px] sm:text-xs text-muted-foreground w-7 sm:w-8 text-center">{Math.round(zoom * 100)}%</span>
           <Button variant="ghost" size="icon" onClick={() => setZoom((z) => Math.min(3, z + 0.25))} className="h-8 w-8 sm:h-9 sm:w-9">
             <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fitAll}
+            className="h-8 w-8 sm:h-9 sm:w-9"
+            title="Fit All"
+          >
+            <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Button>
           <div className="w-px h-5 sm:h-6 bg-border mx-0.5 sm:mx-1" />
           <Button variant="ghost" size="icon" onClick={() => scroll("left")} className="h-8 w-8 sm:h-9 sm:w-9">
@@ -170,7 +206,7 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
       {/* Piano roll */}
       <div ref={containerRef} className="flex rounded-lg overflow-hidden border border-border bg-background max-h-[60vh] sm:max-h-[70vh]">
         {/* Piano keys - fixed */}
-        <div className="flex-shrink-0 sticky left-0 z-10" style={{ width: pianoWidth }}>
+        <div className="flex-shrink-0 sticky left-0 z-10 relative" style={{ width: pianoWidth }}>
           {Array.from({ length: totalNotes }).map((_, i) => {
             const semitone = noteRange.max - i
             const { note, octave } = semitoneToNote(semitone)
@@ -179,16 +215,45 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
             return (
               <div
                 key={semitone}
-                className="flex items-center justify-center border-b border-border/50"
+                className="relative flex items-center justify-end pr-1"
                 style={{
                   height: noteHeight,
-                  backgroundColor: isBlack ? "oklch(0.18 0.01 270)" : "oklch(0.90 0.01 270)",
-                  color: isBlack ? "oklch(0.7 0 0)" : "oklch(0.25 0 0)",
                 }}
               >
-                <span className="text-[9px] sm:text-[10px] font-bold">
-                  {note}
-                  {octave}
+                {/* White key base */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: isBlack 
+                      ? "linear-gradient(to right, oklch(0.15 0.01 270), oklch(0.18 0.01 270))"
+                      : "linear-gradient(to right, oklch(0.92 0.01 270), oklch(0.88 0.01 270))",
+                    borderBottom: "1px solid oklch(0.25 0.01 270)",
+                    borderRight: isBlack ? "none" : "1px solid oklch(0.75 0.01 270)",
+                  }}
+                />
+                
+                {/* Black key overlay (shorter) */}
+                {isBlack && (
+                  <div
+                    className="absolute right-0 top-0 bottom-0 z-10"
+                    style={{
+                      width: pianoWidth * 0.6,
+                      background: "linear-gradient(to right, oklch(0.12 0.01 270), oklch(0.08 0.01 270))",
+                      borderRight: "1px solid oklch(0.05 0.01 270)",
+                      boxShadow: "inset -1px 0 2px rgba(0,0,0,0.5)",
+                    }}
+                  />
+                )}
+                
+                {/* Label */}
+                <span 
+                  className="relative z-20 text-[9px] sm:text-[10px] font-bold"
+                  style={{
+                    color: isBlack ? "oklch(0.65 0 0)" : "oklch(0.30 0 0)",
+                    marginRight: isBlack ? "4px" : "8px",
+                  }}
+                >
+                  {note}{octave}
                 </span>
               </div>
             )
@@ -237,10 +302,10 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
 
               const bgColor =
                 segment.accuracy === "perfect"
-                  ? "oklch(0.55 0.20 145)"
+                  ? "oklch(0.75 0.14 50)"
                   : segment.accuracy === "good"
-                    ? "oklch(0.60 0.18 70)"
-                    : "oklch(0.50 0.22 25)"
+                    ? "oklch(0.70 0.13 45)"
+                    : "oklch(0.65 0.12 35)"
 
               return (
                 <div
@@ -275,20 +340,20 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
           <div className="text-xl sm:text-2xl font-bold text-primary">{accuracyPercent}%</div>
           <div className="text-[10px] sm:text-xs text-muted-foreground">Dokładność</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.55 0.20 145 / 0.2)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.65 0.20 145)" }}>
+        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.75 0.14 50 / 0.15)" }}>
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.75 0.14 50)" }}>
             {stats.perfect}
           </div>
           <div className="text-[10px] sm:text-xs text-muted-foreground">Idealnych</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.60 0.18 70 / 0.2)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.70 0.18 70)" }}>
+        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.70 0.13 45 / 0.15)" }}>
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.70 0.13 45)" }}>
             {stats.good}
           </div>
           <div className="text-[10px] sm:text-xs text-muted-foreground">Blisko</div>
         </div>
-        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.50 0.22 25 / 0.2)" }}>
-          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.60 0.22 25)" }}>
+        <div className="rounded-lg p-2.5 sm:p-3" style={{ backgroundColor: "oklch(0.65 0.12 35 / 0.15)" }}>
+          <div className="text-xl sm:text-2xl font-bold" style={{ color: "oklch(0.65 0.12 35)" }}>
             {stats.off}
           </div>
           <div className="text-[10px] sm:text-xs text-muted-foreground">Fałsz</div>
@@ -298,15 +363,15 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
       {/* Legend */}
       <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.55 0.20 145)" }} />
+          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.75 0.14 50)" }} />
           Idealnie (±10¢)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.60 0.18 70)" }} />
+          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.70 0.13 45)" }} />
           Blisko (±25¢)
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.50 0.22 25)" }} />
+          <span className="w-4 h-3 sm:w-5 sm:h-4 rounded" style={{ backgroundColor: "oklch(0.65 0.12 35)" }} />
           Fałsz ({">"}25¢)
         </span>
       </div>

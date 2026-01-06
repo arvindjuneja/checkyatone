@@ -11,13 +11,13 @@
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.16 0.01 270);
   --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.75 0.18 180);
+  --primary: oklch(0.72 0.13 45);
   --primary-foreground: oklch(0.13 0.01 270);
   --secondary: oklch(0.22 0.01 270);
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.22 0.01 270);
   --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.7 0.15 330);
+  --accent: oklch(0.24 0.01 270);
   --accent-foreground: oklch(0.13 0.01 270);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.95 0 0);
@@ -39,10 +39,10 @@
   --sidebar-border: oklch(0.28 0.01 270);
   --sidebar-ring: oklch(0.75 0.18 180);
 
-  /* Custom colors for pitch accuracy */
-  --pitch-perfect: oklch(0.75 0.18 145);
-  --pitch-good: oklch(0.7 0.15 60);
-  --pitch-off: oklch(0.6 0.22 25);
+  /* Custom colors for pitch accuracy - orange tones only */
+  --pitch-perfect: oklch(0.75 0.14 50);
+  --pitch-good: oklch(0.70 0.13 45);
+  --pitch-off: oklch(0.65 0.12 35);
 }
 
 @theme inline {

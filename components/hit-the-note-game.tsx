@@ -47,9 +47,6 @@ export function HitTheNoteGame({
     return (
       <div className="space-y-4">
         <div className="bg-card rounded-xl p-6 border border-border text-center space-y-4">
-          <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-pitch-good to-pitch-perfect flex items-center justify-center">
-            <Trophy className="w-10 h-10 text-white" />
-          </div>
           <div>
             <h2 className="text-2xl font-bold mb-2">Hit the Note!</h2>
             <p className="text-sm text-muted-foreground">
@@ -90,7 +87,7 @@ export function HitTheNoteGame({
             onStartRecording()
           }}
           size="lg"
-          className="w-full gap-2 h-14 text-lg bg-gradient-to-r from-pitch-good to-pitch-perfect hover:opacity-90"
+          className="w-full gap-2 h-14 text-lg bg-pitch-perfect hover:opacity-90 text-background"
         >
           <Play className="w-6 h-6" />
           Start Game
@@ -138,7 +135,7 @@ export function HitTheNoteGame({
           {/* Hit Progress Bar */}
           <div className="w-full h-3 bg-secondary rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-pitch-good to-pitch-perfect transition-all duration-150"
+              className="h-full bg-pitch-perfect transition-all duration-150"
               style={{ width: `${hitProgress}%` }}
             />
           </div>
@@ -218,7 +215,7 @@ export function HitTheNoteGame({
         </div>
 
         {/* Final Score */}
-        <div className="bg-gradient-to-br from-pitch-good/20 to-pitch-perfect/20 rounded-xl p-6 border border-border text-center space-y-2">
+        <div className="bg-pitch-perfect/10 rounded-xl p-6 border border-pitch-perfect/30 text-center space-y-2">
           <div className="text-sm text-muted-foreground">Final Score</div>
           <div className="text-5xl font-bold text-pitch-perfect">{score}</div>
           <div className="text-sm text-muted-foreground">
@@ -283,7 +280,7 @@ export function HitTheNoteGame({
               }
             }}
             size="lg"
-            className="flex-1 gap-2 bg-gradient-to-r from-pitch-good to-pitch-perfect"
+            className="flex-1 gap-2 bg-pitch-perfect text-background hover:opacity-90"
           >
             <Play className="w-5 h-5" />
             Play Again

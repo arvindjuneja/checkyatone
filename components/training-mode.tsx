@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTrainingMode } from "@/hooks/use-training-mode"
-import { TRAINING_EXERCISES } from "@/lib/audio-synth"
+import { TRAINING_EXERCISES, getDifficultyLabel, getDifficultyColor, type DifficultyLevel } from "@/lib/audio-synth"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Play, Mic, RotateCcw, Home, Volume2 } from "lucide-react"
+import { Play, Mic, RotateCcw, Home, Volume2, Filter } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
 interface TrainingModeProps {
@@ -21,6 +21,8 @@ export function TrainingMode({
   onStartRecording,
   onStopRecording,
 }: TrainingModeProps) {
+  const [maxDifficulty, setMaxDifficulty] = useState<DifficultyLevel>("hard")
+  
   const {
     phase,
     selectedExercise,
@@ -35,6 +37,12 @@ export function TrainingMode({
     reset,
     retry,
   } = useTrainingMode()
+
+  // Filter exercises by difficulty
+  const filteredExercises = TRAINING_EXERCISES.filter(exercise => {
+    const difficultyOrder: Record<DifficultyLevel, number> = { easy: 1, medium: 2, hard: 3 }
+    return difficultyOrder[exercise.difficulty] <= difficultyOrder[maxDifficulty]
+  })
 
   // Add current pitch to training data when recording
   useEffect(() => {
@@ -72,8 +80,53 @@ export function TrainingMode({
           </p>
         </div>
 
+        {/* Difficulty Filter */}
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-semibold text-sm">Poziom trudności</h3>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMaxDifficulty("easy")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                maxDifficulty === "easy"
+                  ? "bg-pitch-perfect text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Łatwy
+            </button>
+            <button
+              onClick={() => setMaxDifficulty("medium")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                maxDifficulty === "medium"
+                  ? "bg-pitch-good text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Średni
+            </button>
+            <button
+              onClick={() => setMaxDifficulty("hard")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                maxDifficulty === "hard"
+                  ? "bg-pitch-off text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Wszystkie
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {maxDifficulty === "easy" && "Pokazuję tylko łatwe ćwiczenia (krótkie interwały)"}
+            {maxDifficulty === "medium" && "Pokazuję łatwe i średnie ćwiczenia"}
+            {maxDifficulty === "hard" && "Pokazuję wszystkie ćwiczenia"}
+          </p>
+        </div>
+
         <div className="grid gap-3">
-          {TRAINING_EXERCISES.map((exercise) => (
+          {filteredExercises.map((exercise) => (
             <button
               key={exercise.id}
               onClick={() => {
@@ -82,8 +135,15 @@ export function TrainingMode({
               }}
               className="bg-card hover:bg-accent rounded-xl p-4 border border-border text-left transition-colors"
             >
-              <h3 className="font-semibold text-foreground mb-1">{exercise.name}</h3>
-              <p className="text-sm text-muted-foreground">{exercise.description}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">{exercise.name}</h3>
+                  <p className="text-sm text-muted-foreground">{exercise.description}</p>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-1 rounded ${getDifficultyColor(exercise.difficulty)}`}>
+                  {getDifficultyLabel(exercise.difficulty)}
+                </span>
+              </div>
               <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                 <Volume2 className="w-4 h-4" />
                 <span>{exercise.notes.length} nut</span>
@@ -162,7 +222,7 @@ export function TrainingMode({
                 onStartRecording()
               }}
               size="lg"
-              className="gap-2 bg-pitch-off hover:bg-pitch-off/90"
+              className="gap-2 bg-pitch-perfect text-background hover:opacity-90"
             >
               <Mic className="w-5 h-5" />
               Zacznij śpiewać
