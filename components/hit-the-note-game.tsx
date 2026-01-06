@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { useHitTheNoteGame } from "@/hooks/use-hit-the-note-game"
-import { Play, Volume2, SkipForward, Home, Heart, Trophy } from "lucide-react"
+import { useHitTheNoteGame, type OctaveRange } from "@/hooks/use-hit-the-note-game"
+import { Play, Volume2, SkipForward, Home, Heart, Trophy, Music } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
 interface HitTheNoteGameProps {
@@ -19,6 +19,8 @@ export function HitTheNoteGame({
   onStartRecording,
   onStopRecording,
 }: HitTheNoteGameProps) {
+  const [octaveRange, setOctaveRange] = useState<OctaveRange>("medium")
+  
   const {
     phase,
     currentNote,
@@ -33,7 +35,7 @@ export function HitTheNoteGame({
     processPitch,
     skipNote,
     reset,
-  } = useHitTheNoteGame()
+  } = useHitTheNoteGame(octaveRange)
 
   // Process pitches when playing
   useEffect(() => {
@@ -79,6 +81,51 @@ export function HitTheNoteGame({
               <span>Gra kończy się po 3 błędach</span>
             </li>
           </ul>
+        </div>
+
+        {/* Octave Range Selector */}
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <Music className="w-4 h-4 text-muted-foreground" />
+            <h3 className="font-semibold text-sm">Zakres oktaw</h3>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setOctaveRange("low")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                octaveRange === "low"
+                  ? "bg-pitch-perfect text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Niski
+            </button>
+            <button
+              onClick={() => setOctaveRange("medium")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                octaveRange === "medium"
+                  ? "bg-pitch-good text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Średni
+            </button>
+            <button
+              onClick={() => setOctaveRange("high")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                octaveRange === "high"
+                  ? "bg-pitch-off text-background"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Wysoki
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            {octaveRange === "low" && "Tylko C3-B3 (najniższy zakres)"}
+            {octaveRange === "medium" && "C3-B4 (wygodny zakres - domyślny)"}
+            {octaveRange === "high" && "C3-B5 (pełny zakres, trudniejszy)"}
+          </p>
         </div>
 
         <Button

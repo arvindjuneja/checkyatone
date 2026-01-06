@@ -7,6 +7,7 @@ import { type PitchData, noteToFrequency } from "@/lib/pitch-detector"
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 export type GamePhase = "ready" | "playing" | "gameover"
+export type OctaveRange = "low" | "medium" | "high"
 
 export interface GameNote {
   note: string
@@ -21,7 +22,7 @@ export interface NoteAttempt {
   timeToHit: number
 }
 
-export function useHitTheNoteGame() {
+export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
   const [phase, setPhase] = useState<GamePhase>("ready")
   const [currentNote, setCurrentNote] = useState<GameNote | null>(null)
   const [score, setScore] = useState(0)
@@ -51,22 +52,35 @@ export function useHitTheNoteGame() {
   }, [])
 
   const generateRandomNote = useCallback((): GameNote => {
-    // Generate notes between C3 and C5 (comfortable singing range)
-    const minOctave = 3
-    const maxOctave = 5
+    // Set octave range based on user preference
+    let minOctave: number
+    let maxOctave: number
+    
+    if (octaveRange === "low") {
+      minOctave = 3
+      maxOctave = 3 // C3 to B3
+    } else if (octaveRange === "medium") {
+      minOctave = 3
+      maxOctave = 4 // C3 to B4
+    } else {
+      minOctave = 3
+      maxOctave = 5 // C3 to B5
+    }
+    
     const octave = minOctave + Math.floor(Math.random() * (maxOctave - minOctave + 1))
     const noteIndex = Math.floor(Math.random() * NOTE_NAMES.length)
     const note = NOTE_NAMES[noteIndex]
     const frequency = noteToFrequency(note, octave)
 
     return { note, octave, frequency }
-  }, [])
+  }, [octaveRange])
 
   const playCurrentNote = useCallback(async () => {
     if (!currentNote || !synthesizerRef.current) return
 
     setIsPlayingNote(true)
     try {
+      console.log(`🎵 Playing: ${currentNote.note}${currentNote.octave} at ${currentNote.frequency.toFixed(2)} Hz`)
       await synthesizerRef.current.playNote(currentNote.note, currentNote.octave, 800)
     } catch (error) {
       console.error("Error playing note:", error)

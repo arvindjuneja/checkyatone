@@ -27,6 +27,7 @@ Vocal Coach is a modern web application for real-time vocal pitch analysis and v
 
 ### 🎮 Hit the Note Game
 - **Random Note Challenge**: Hit randomly generated notes as fast as you can
+- **Octave Range Selector**: Choose from Low (C3-B3), Medium (C3-B4), or High (C3-B5) ranges
 - **Lives System**: 3 lives - lose one when you skip a note
 - **Scoring**: Earn 10 points for each correct note
 - **Real-time Progress**: Visual progress bar shows how close you are to hitting the note
