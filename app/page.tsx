@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAudioRecorder } from "@/hooks/use-audio-recorder"
+import { trackPageView } from "@/lib/analytics"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
 import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 import { TimelineAnalysis } from "@/components/timeline-analysis"
 import { AudioSettings } from "@/components/audio-settings"
-import { TrainingMode } from "@/components/training-mode"
+import { TrainingHub } from "@/components/training-hub"
 import { Music2, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -31,6 +32,18 @@ export default function VocalAnalyzerPage() {
   } = useAudioRecorder()
 
   const [activeTab, setActiveTab] = useState<"live" | "analysis" | "training">("live")
+
+  // Track page views when tab changes
+  useEffect(() => {
+    const titles = {
+      live: "Vocal Coach - Na żywo",
+      analysis: "Vocal Coach - Analiza",
+      training: "Vocal Coach - Trenuj",
+    }
+    const title = titles[activeTab]
+    document.title = title
+    trackPageView(title, `/${activeTab}`)
+  }, [activeTab])
 
   return (
     <main className="min-h-screen bg-background flex flex-col">
@@ -124,8 +137,8 @@ export default function VocalAnalyzerPage() {
           </>
         ) : activeTab === "training" ? (
           <>
-            {/* Training Mode */}
-            <TrainingMode
+            {/* Training Hub */}
+            <TrainingHub
               currentPitch={currentPitch}
               isRecordingActive={isRecording}
               onStartRecording={startRecording}

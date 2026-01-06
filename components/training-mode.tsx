@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useTrainingMode } from "@/hooks/use-training-mode"
 import { TRAINING_EXERCISES } from "@/lib/audio-synth"
+import { trackPageView, trackEvent } from "@/lib/analytics"
 import { Play, Mic, RotateCcw, Home, Volume2 } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
@@ -41,6 +42,24 @@ export function TrainingMode({
       addPitch(currentPitch)
     }
   }, [phase, currentPitch, addPitch])
+
+  // Track when exercise is selected
+  useEffect(() => {
+    if (selectedExercise && phase !== "selecting") {
+      const title = `Vocal Coach - Trenuj - ${selectedExercise.name}`
+      document.title = title
+      trackPageView(title, `/training/${selectedExercise.id}`)
+      trackEvent("exercise_selected", "Training", selectedExercise.name)
+    }
+  }, [selectedExercise, phase])
+
+  // Track when results are shown
+  useEffect(() => {
+    if (phase === "results" && accuracyResults.length > 0) {
+      const overallScore = accuracyResults.reduce((sum, r) => sum + r.hitRate, 0) / accuracyResults.length
+      trackEvent("exercise_completed", "Training", selectedExercise?.name, Math.round(overallScore))
+    }
+  }, [phase, accuracyResults, selectedExercise])
 
   // Exercise Selection Phase
   if (phase === "selecting") {
