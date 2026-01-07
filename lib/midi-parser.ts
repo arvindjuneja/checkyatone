@@ -393,8 +393,8 @@ export async function parseMidiFile(url: string): Promise<ParsedMidi> {
 }
 
 // Get available MIDI files from public folder
-export const AVAILABLE_MIDI_FILES = [
-  { id: "wlazl_kotek", name: "Wlazł Kotek na Płotek", url: "/wlazl_kotek_na_plotek.mid" },
+export const AVAILABLE_MIDI_FILES: Array<{ id: string; name: string; url: string }> = [
+  // Add your MIDI files here
 ]
 
 // Transpose all notes in a MIDI by a number of semitones
