@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { TrainingMode } from "@/components/training-mode"
 import { HitTheNoteGame } from "@/components/hit-the-note-game"
-import { BookOpen, Gamepad2, ArrowLeft } from "lucide-react"
+import { SingAlong } from "@/components/sing-along"
+import { BookOpen, Gamepad2, ArrowLeft, Music } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
 interface TrainingHubProps {
@@ -13,7 +14,7 @@ interface TrainingHubProps {
   onStopRecording: () => void
 }
 
-type TrainingMode = "menu" | "exercises" | "game"
+type TrainingModeType = "menu" | "exercises" | "game" | "singalong"
 
 export function TrainingHub({
   currentPitch,
@@ -21,7 +22,7 @@ export function TrainingHub({
   onStartRecording,
   onStopRecording,
 }: TrainingHubProps) {
-  const [mode, setMode] = useState<TrainingMode>("menu")
+  const [mode, setMode] = useState<TrainingModeType>("menu")
 
   if (mode === "exercises") {
     return (
@@ -54,6 +55,26 @@ export function TrainingHub({
           Back to menu
         </button>
         <HitTheNoteGame
+          currentPitch={currentPitch}
+          isRecordingActive={isRecordingActive}
+          onStartRecording={onStartRecording}
+          onStopRecording={onStopRecording}
+        />
+      </div>
+    )
+  }
+
+  if (mode === "singalong") {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setMode("menu")}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to menu
+        </button>
+        <SingAlong
           currentPitch={currentPitch}
           isRecordingActive={isRecordingActive}
           onStartRecording={onStartRecording}
@@ -120,6 +141,38 @@ export function TrainingHub({
                 </span>
                 <span className="text-xs px-2 py-1 bg-pitch-perfect/15 text-pitch-perfect rounded">
                   Scoring
+                </span>
+              </div>
+            </div>
+          </div>
+        </button>
+
+        {/* Sing Along Option */}
+        <button
+          onClick={() => setMode("singalong")}
+          className="bg-card hover:bg-accent rounded-xl p-6 border border-border text-left transition-all hover:scale-[1.02] relative overflow-hidden"
+        >
+          <div className="absolute top-2 right-2 text-xs px-2 py-0.5 bg-purple-500 text-white rounded-full font-medium">
+            NOWE!
+          </div>
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/30 to-pink-500/30 border border-purple-500/40 flex items-center justify-center shrink-0">
+              <Music className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-1">Śpiewaj z piosenką! 🎤</h3>
+              <p className="text-sm text-muted-foreground mb-2">
+                Wczytaj plik MIDI z melodią i śpiewaj razem. Widzisz na bieżąco czy trafiasz!
+              </p>
+              <div className="flex flex-wrap gap-1">
+                <span className="text-xs px-2 py-1 bg-purple-500/15 text-purple-400 rounded">
+                  Piano roll
+                </span>
+                <span className="text-xs px-2 py-1 bg-purple-500/15 text-purple-400 rounded">
+                  Realtime
+                </span>
+                <span className="text-xs px-2 py-1 bg-purple-500/15 text-purple-400 rounded">
+                  MIDI
                 </span>
               </div>
             </div>
