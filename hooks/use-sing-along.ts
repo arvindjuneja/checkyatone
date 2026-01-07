@@ -305,6 +305,21 @@ export function useSingAlong() {
     }
   }, [state.phase])
 
+  // Seek to a specific time
+  const seekTo = useCallback((timeMs: number) => {
+    setState((prev) => {
+      if (!prev.midi) return prev
+      const clampedTime = Math.max(0, Math.min(timeMs, prev.midi.duration))
+      return { ...prev, currentTime: clampedTime }
+    })
+  }, [])
+
+  // Get the time when first note starts
+  const getFirstNoteTime = useCallback((): number => {
+    if (!state.midi || state.midi.notes.length === 0) return 0
+    return state.midi.notes[0].startTime
+  }, [state.midi])
+
   // Stop and reset
   const stop = useCallback(() => {
     if (animationFrameRef.current) {
@@ -373,9 +388,11 @@ export function useSingAlong() {
     processNoPitch,
     setTranspose,
     selectTrack,
+    seekTo,
 
     // Derived data
     getVisibleNotes,
     getVisiblePitchHistory,
+    getFirstNoteTime,
   }
 }

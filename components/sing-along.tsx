@@ -66,8 +66,10 @@ export function SingAlong({
     processPitch,
     setTranspose,
     selectTrack,
+    seekTo,
     getVisibleNotes,
     getVisiblePitchHistory,
+    getFirstNoteTime,
   } = useSingAlong()
 
   const [selectedMidiId, setSelectedMidiId] = useState<string | null>(null)
@@ -711,7 +713,7 @@ export function SingAlong({
         )}
       </div>
 
-      {/* Timeline */}
+      {/* Timeline - Interactive */}
       <div className="bg-card rounded-xl p-3 border border-border">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-mono">{formatTime(state.currentTime)}</span>
@@ -719,13 +721,104 @@ export function SingAlong({
             {formatTime(state.midi.duration)}
           </span>
         </div>
-        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+        
+        {/* Clickable seek bar */}
+        <div 
+          className="relative w-full h-6 bg-secondary rounded-full overflow-hidden cursor-pointer group"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - rect.left
+            const percent = x / rect.width
+            const newTime = percent * state.midi.duration
+            seekTo(newTime)
+          }}
+        >
+          {/* Note density visualization */}
+          <div className="absolute inset-0 flex">
+            {state.midi.notes.length > 0 && (() => {
+              // Create buckets to show note density
+              const buckets = 50
+              const bucketSize = state.midi.duration / buckets
+              const density = new Array(buckets).fill(0)
+              
+              state.midi.notes.forEach(note => {
+                const bucket = Math.min(Math.floor(note.startTime / bucketSize), buckets - 1)
+                density[bucket]++
+              })
+              
+              const maxDensity = Math.max(...density, 1)
+              
+              return density.map((count, i) => (
+                <div
+                  key={i}
+                  className="flex-1 flex items-end"
+                >
+                  <div 
+                    className="w-full bg-purple-500/30 rounded-t-sm"
+                    style={{ height: `${(count / maxDensity) * 100}%` }}
+                  />
+                </div>
+              ))
+            })()}
+          </div>
+          
+          {/* Progress bar */}
           <div
-            className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-100"
+            className="absolute top-0 left-0 h-full bg-gradient-to-r from-purple-500/80 to-pink-500/80 transition-all duration-100 pointer-events-none"
             style={{
               width: `${(state.currentTime / state.midi.duration) * 100}%`,
             }}
           />
+          
+          {/* Playhead */}
+          <div 
+            className="absolute top-0 h-full w-1 bg-white shadow-lg transition-all duration-100 pointer-events-none"
+            style={{
+              left: `${(state.currentTime / state.midi.duration) * 100}%`,
+              transform: 'translateX(-50%)',
+            }}
+          />
+          
+          {/* Hover hint */}
+          <div className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors pointer-events-none" />
+        </div>
+        
+        {/* Quick navigation */}
+        <div className="flex gap-2 mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seekTo(0)}
+            className="text-xs h-7"
+          >
+            ⏮ Początek
+          </Button>
+          {getFirstNoteTime() > 1000 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => seekTo(Math.max(0, getFirstNoteTime() - 500))}
+              className="text-xs h-7 border-purple-500/50 text-purple-400"
+            >
+              🎵 Pierwsza nuta ({formatTime(getFirstNoteTime())})
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seekTo(state.currentTime - 5000)}
+            className="text-xs h-7"
+          >
+            -5s
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seekTo(state.currentTime + 5000)}
+            className="text-xs h-7"
+          >
+            +5s
+          </Button>
         </div>
       </div>
 
