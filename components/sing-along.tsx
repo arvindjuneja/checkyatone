@@ -726,6 +726,7 @@ export function SingAlong({
         <div 
           className="relative w-full h-6 bg-secondary rounded-full overflow-hidden cursor-pointer group"
           onClick={(e) => {
+            if (!state.midi) return
             const rect = e.currentTarget.getBoundingClientRect()
             const x = e.clientX - rect.left
             const percent = x / rect.width
