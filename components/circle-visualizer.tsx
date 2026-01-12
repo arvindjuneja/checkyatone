@@ -159,15 +159,15 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
     const height = rect.height
     const centerX = width / 2
     const centerY = height / 2
-    const radius = Math.min(width, height) / 2 - 30
+    const radius = Math.max(40, Math.min(width, height) / 2 - 30)
 
     // Background
     ctx.fillStyle = "oklch(0.12 0.01 270)"
     ctx.fillRect(0, 0, width, height)
 
-    const innerRadius = radius * 0.35
-    const middleRadius = radius * 0.65
-    const outerRadius = radius * 0.95
+    const innerRadius = Math.max(0, radius * 0.35)
+    const middleRadius = Math.max(0, radius * 0.65)
+    const outerRadius = Math.max(0, radius * 0.95)
 
     // Draw segments for each note
     const segmentAngle = (2 * Math.PI) / 7
@@ -344,8 +344,8 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
     <div className="space-y-4">
       <canvas 
         ref={canvasRef} 
-        className="w-full aspect-square rounded-xl" 
-        style={{ maxHeight: "320px" }} 
+        className="w-full rounded-xl" 
+        style={{ height: "320px", width: "320px", maxWidth: "100%" }} 
       />
       
       {/* Stats display */}

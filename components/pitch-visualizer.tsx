@@ -364,5 +364,5 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
     }
   }, [isRecording, draw])
 
-  return <canvas ref={canvasRef} className="w-full h-full rounded-xl" style={{ minHeight: "320px" }} />
+  return <canvas ref={canvasRef} className="w-full rounded-xl" style={{ height: "320px" }} />
 }

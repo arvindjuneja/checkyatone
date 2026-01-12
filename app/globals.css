@@ -97,3 +97,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Desktop-specific utilities */
+@layer utilities {
+  .desktop-panel-resize-handle {
+    @apply w-1 bg-border hover:bg-primary/50 transition-colors cursor-col-resize;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
