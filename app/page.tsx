@@ -4,12 +4,13 @@ import { useState, useEffect } from "react"
 import { useAudioRecorder } from "@/hooks/use-audio-recorder"
 import { trackPageView } from "@/lib/analytics"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
+import { CircleVisualizer } from "@/components/circle-visualizer"
 import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 import { TimelineAnalysis } from "@/components/timeline-analysis"
 import { AudioSettings } from "@/components/audio-settings"
 import { TrainingHub } from "@/components/training-hub"
-import { Music2, AlertCircle } from "lucide-react"
+import { Music2, AlertCircle, LayoutList, Circle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function VocalAnalyzerPage() {
@@ -32,6 +33,7 @@ export default function VocalAnalyzerPage() {
   } = useAudioRecorder()
 
   const [activeTab, setActiveTab] = useState<"live" | "analysis" | "training" | "why">("live")
+  const [visualizationMode, setVisualizationMode] = useState<"timeline" | "circle">("timeline")
 
   // Track page views when tab changes
   useEffect(() => {
@@ -142,13 +144,47 @@ export default function VocalAnalyzerPage() {
               disabled={isRecording}
             />
 
-            {/* Live Pitch Visualizer */}
-            <div className="bg-card rounded-xl p-3 border border-border">
-              <PitchVisualizer pitchHistory={pitchHistory} currentPitch={currentPitch} isRecording={isRecording} />
+            {/* Visualization Mode Toggle */}
+            <div className="flex justify-center">
+              <div className="inline-flex bg-secondary/50 rounded-xl p-1 gap-1">
+                <button
+                  onClick={() => setVisualizationMode("timeline")}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                    visualizationMode === "timeline"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutList className="w-4 h-4" />
+                  Timeline
+                </button>
+                <button
+                  onClick={() => setVisualizationMode("circle")}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                    visualizationMode === "circle"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Circle className="w-4 h-4" />
+                  Koło
+                </button>
+              </div>
             </div>
 
-            {/* Current Note Display */}
-            <CurrentNoteDisplay currentPitch={currentPitch} pitchHistory={pitchHistory} />
+            {/* Live Pitch Visualizer */}
+            <div className="bg-card rounded-xl p-3 border border-border">
+              {visualizationMode === "timeline" ? (
+                <PitchVisualizer pitchHistory={pitchHistory} currentPitch={currentPitch} isRecording={isRecording} />
+              ) : (
+                <CircleVisualizer pitchHistory={pitchHistory} currentPitch={currentPitch} isRecording={isRecording} />
+              )}
+            </div>
+
+            {/* Current Note Display - only show for timeline mode */}
+            {visualizationMode === "timeline" && (
+              <CurrentNoteDisplay currentPitch={currentPitch} pitchHistory={pitchHistory} />
+            )}
 
             {/* Recording Controls */}
             <div className="bg-card rounded-xl p-6 border border-border">

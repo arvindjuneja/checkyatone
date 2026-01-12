@@ -311,4 +311,3 @@ export function getDifficultyColor(difficulty: DifficultyLevel): string {
   }
   return colors[difficulty]
 }
-

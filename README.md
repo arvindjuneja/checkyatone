@@ -39,7 +39,12 @@ Vocal Coach is a modern web application for real-time vocal pitch analysis and v
 - **Replay Option**: Play any note again if you need to hear it
 
 ### 📊 Visual Components
-- **Pitch Visualizer**: Real-time waveform display of pitch history
+- **Timeline Visualizer**: Real-time piano roll display with pitch ribbons showing your vocal performance
+- **Circle Visualizer**: Dynamic wheel visualization showing note activity across all 7 natural notes
+  - Multi-segment activity tracking for fluid pitch movements
+  - Color-coded accuracy feedback (green/yellow/red)
+  - Real-time statistics (accuracy %, perfect/close/off counts)
+  - Intensity-based highlighting showing pitch distribution
 - **Current Note Display**: Large, easy-to-read note indicator
 - **Timeline Analysis**: Historical view of your entire recording session
 - **Recording Controls**: Start, stop, pause, and reset functionality
@@ -102,10 +107,13 @@ This will create an optimized production build in the `out` directory (static ex
 ### Live Mode
 1. **Grant Microphone Access**: Allow the browser to access your microphone when prompted
 2. **Adjust Settings**: Configure gain and sensitivity based on your microphone and environment
-3. **Start Recording**: Click the record button to begin pitch analysis
-4. **Sing or Hum**: The app will display your current note and pitch accuracy in real-time
-5. **View Analysis**: Switch to the "Analiza" tab to see your complete pitch history
-6. **Reset**: Clear the recording to start a new session
+3. **Choose Visualization**: Toggle between "Timeline" (piano roll view) or "Koło" (circle wheel view)
+4. **Start Recording**: Click the record button to begin pitch analysis
+5. **Sing or Hum**: The app will display your current note and pitch accuracy in real-time
+   - Timeline mode shows horizontal pitch ribbons over time
+   - Circle mode shows active note segments with intensity-based coloring
+6. **View Analysis**: Switch to the "Analiza" tab to see your complete pitch history
+7. **Reset**: Clear the recording to start a new session
 
 ### Training Mode
 1. **Select Mode**: Choose between "Ćwiczenia" (Exercises) or "Hit the Note!" (Game)
@@ -137,7 +145,8 @@ voice/
 ├── components/            # React components
 │   ├── audio-settings.tsx
 │   ├── current-note-display.tsx
-│   ├── pitch-visualizer.tsx
+│   ├── pitch-visualizer.tsx      # Timeline piano roll view
+│   ├── circle-visualizer.tsx     # Circular wheel view
 │   ├── recording-controls.tsx
 │   ├── timeline-analysis.tsx
 │   ├── training-hub.tsx       # Training mode menu
