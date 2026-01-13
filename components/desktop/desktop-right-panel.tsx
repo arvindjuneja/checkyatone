@@ -6,9 +6,7 @@ import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 
 interface DesktopRightPanelProps {
-  activeTab: "live" | "analysis" | "training" | "why"
-  visualizationMode: "timeline" | "circle"
-  setVisualizationMode: (mode: "timeline" | "circle") => void
+  pathname: string
   isRecording: boolean
   isPaused: boolean
   currentPitch: PitchData | null
@@ -26,9 +24,7 @@ interface DesktopRightPanelProps {
 }
 
 export function DesktopRightPanel({
-  activeTab,
-  visualizationMode,
-  setVisualizationMode,
+  pathname,
   isRecording,
   isPaused,
   currentPitch,
@@ -44,6 +40,10 @@ export function DesktopRightPanel({
   updateGain,
   updateSensitivity,
 }: DesktopRightPanelProps) {
+  // Derive active section from pathname
+  const isLive = pathname === "/"
+  const isTraining = pathname.startsWith("/training")
+  const isAnalysis = pathname === "/analysis"
   return (
     <div className="h-full flex flex-col p-4 space-y-4 overflow-y-auto">
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Inspector</h3>
@@ -58,7 +58,7 @@ export function DesktopRightPanel({
       />
 
       {/* Live Tab - Show current note */}
-      {activeTab === "live" && (
+      {isLive && (
         <>
           {/* Current Note Display */}
           <CurrentNoteDisplay currentPitch={currentPitch} pitchHistory={pitchHistory} />
@@ -91,7 +91,7 @@ export function DesktopRightPanel({
       )}
 
       {/* Training Tab - Show tips */}
-      {activeTab === "training" && (
+      {isTraining && (
         <div className="bg-card rounded-xl p-3 border border-border">
           <h4 className="text-sm font-semibold mb-2">Wskazówki</h4>
           <ul className="text-xs text-muted-foreground space-y-2">
@@ -112,7 +112,7 @@ export function DesktopRightPanel({
       )}
 
       {/* Analysis Tab - Show legend */}
-      {activeTab === "analysis" && (
+      {isAnalysis && (
         <div className="bg-card rounded-xl p-3 border border-border">
           <h4 className="text-sm font-semibold mb-2">Legenda kolorów</h4>
           <ul className="text-xs space-y-2">

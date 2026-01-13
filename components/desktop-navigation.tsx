@@ -25,6 +25,7 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
   const {
     isRecording,
     isPaused,
+    currentPitch,
     pitchHistory,
     recordingDuration,
     error,
@@ -341,8 +342,11 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
                 className="bg-card/30"
               >
                 <DesktopRightPanel
+                  pathname={pathname}
                   isRecording={isRecording}
                   isPaused={isPaused}
+                  currentPitch={currentPitch}
+                  pitchHistory={pitchHistory}
                   recordingDuration={recordingDuration}
                   hasRecording={pitchHistory.length > 0}
                   startRecording={startRecording}
