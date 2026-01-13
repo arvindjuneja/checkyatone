@@ -89,23 +89,29 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
     }
 
     if (!isRecording && wasRecordingRef.current && pitchHistory.length > 0) {
-      const duration = recordingStartTimeRef.current
-        ? Math.floor((Date.now() - recordingStartTimeRef.current) / 1000)
-        : recordingDuration
+      // Wait for MediaRecorder's onstop event to fire and set the audioBlob
+      const timer = setTimeout(async () => {
+        const duration = recordingStartTimeRef.current
+          ? Math.floor((Date.now() - recordingStartTimeRef.current) / 1000)
+          : recordingDuration
 
-      const sessionType = pathname.startsWith("/training") ? "training" : "live"
+        const sessionType = pathname.startsWith("/training") ? "training" : "live"
 
-      // Save session with hasAudio flag
-      const sessionId = saveSession(pitchHistory, sessionType, duration, undefined, true)
+        // Save session with hasAudio flag
+        const sessionId = saveSession(pitchHistory, sessionType, duration, undefined, true)
 
-      // Also save audio if available
-      if (sessionId) {
-        saveAudioToSession(sessionId).catch((error) => {
-          console.error("Failed to save audio:", error)
-        })
-      }
+        // Also save audio if available (wait a moment for audioBlob to be ready)
+        if (sessionId) {
+          const saved = await saveAudioToSession(sessionId)
+          if (!saved) {
+            console.warn("Audio not saved for session:", sessionId)
+          }
+        }
 
-      recordingStartTimeRef.current = null
+        recordingStartTimeRef.current = null
+      }, 300) // Give MediaRecorder's onstop event time to fire
+
+      return () => clearTimeout(timer)
     }
 
     wasRecordingRef.current = isRecording
