@@ -80,6 +80,16 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
               Analiza
             </Link>
             <Link
+              href="/studio"
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
+                isActive("/studio")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Studio
+            </Link>
+            <Link
               href="/about"
               className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
                 isActive("/about")

@@ -11,7 +11,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
-import { Music2, Mic, Pause, RotateCcw, LayoutList, Maximize2, BookOpen, Gamepad2, Music } from "lucide-react"
+import { Music2, Mic, Pause, RotateCcw, LayoutList, Maximize2, BookOpen, Gamepad2, Music, TrendingUp, BarChart3, Sparkles } from "lucide-react"
 
 interface CommandPaletteProps {
   open: boolean
@@ -70,18 +70,32 @@ export function CommandPalette({
             <span className="ml-auto text-xs text-muted-foreground">2</span>
           </CommandItem>
           <CommandItem
+            onSelect={() => runCommand(() => onNavigate("/progress"))}
+          >
+            <TrendingUp className="mr-2 h-4 w-4" />
+            <span>Postępy</span>
+            <span className="ml-auto text-xs text-muted-foreground">3</span>
+          </CommandItem>
+          <CommandItem
             onSelect={() => runCommand(() => onNavigate("/analysis"))}
           >
-            <LayoutList className="mr-2 h-4 w-4" />
+            <BarChart3 className="mr-2 h-4 w-4" />
             <span>Analiza</span>
-            <span className="ml-auto text-xs text-muted-foreground">3</span>
+            <span className="ml-auto text-xs text-muted-foreground">4</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => runCommand(() => onNavigate("/studio"))}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            <span>Studio</span>
+            <span className="ml-auto text-xs text-muted-foreground">5</span>
           </CommandItem>
           <CommandItem
             onSelect={() => runCommand(() => onNavigate("/about"))}
           >
             <Music className="mr-2 h-4 w-4" />
             <span>Po co?</span>
-            <span className="ml-auto text-xs text-muted-foreground">4</span>
+            <span className="ml-auto text-xs text-muted-foreground">6</span>
           </CommandItem>
         </CommandGroup>
 

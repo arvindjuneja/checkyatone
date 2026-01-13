@@ -127,12 +127,24 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
     },
     {
       key: "3",
+      handler: () => router.push("/progress"),
+      description: "Przełącz na Postępy",
+      preventDefault: true,
+    },
+    {
+      key: "4",
       handler: () => router.push("/analysis"),
       description: "Przełącz na Analiza",
       preventDefault: true,
     },
     {
-      key: "4",
+      key: "5",
+      handler: () => router.push("/studio"),
+      description: "Przełącz na Studio",
+      preventDefault: true,
+    },
+    {
+      key: "6",
       handler: () => router.push("/about"),
       description: "Przełącz na Po co?",
       preventDefault: true,
