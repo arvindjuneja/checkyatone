@@ -18,11 +18,18 @@ export function frequencyToNote(frequency: number): { note: string; octave: numb
   const octave = Math.floor(roundedNote / 12) - 1
   const noteIndex = ((roundedNote % 12) + 12) % 12
 
-  return {
+  const result = {
     note: NOTE_NAMES[noteIndex],
     octave,
     cents,
   }
+
+  // Debug logging (can be removed later)
+  if (Math.random() < 0.1) { // Log 10% of detections to avoid spam
+    console.log(`[PitchDetect] ${frequency.toFixed(2)} Hz → ${result.note}${result.octave} (MIDI note ${roundedNote})`)
+  }
+
+  return result
 }
 
 export function noteToFrequency(note: string, octave: number): number {

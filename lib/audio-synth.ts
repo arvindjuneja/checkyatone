@@ -94,8 +94,10 @@ export class AudioSynthesizer {
   async playNoteSequence(notes: ToneNote[], gap: number = 200): Promise<void> {
     let currentDelay = 0
 
+    console.log('[AudioSynth] Playing note sequence:')
     for (const noteData of notes) {
       const frequency = noteToFrequency(noteData.note, noteData.octave)
+      console.log(`  ${noteData.note}${noteData.octave} → ${frequency.toFixed(2)} Hz`)
       if (frequency > 0) {
         await this.playPianoTone(frequency, noteData.duration, currentDelay / 1000)
         currentDelay += noteData.duration + gap
