@@ -238,24 +238,35 @@ export default function StudioPage() {
       }
 
       mediaRecorder.onstop = async () => {
+        console.log("[Studio] Recording stopped, processing...")
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        console.log("[Studio] Audio blob created, size:", blob.size)
 
         // Set as original audio
         setOriginalAudio(blob)
+        console.log("[Studio] Generating waveform for recording...")
         const waveform = await getWaveformData(blob)
+        console.log("[Studio] Waveform generated, samples:", waveform.length)
         setOriginalWaveform(waveform)
 
         // Create audio element for playback with preload
+        console.log("[Studio] Creating audio element for playback...")
         const audioURL = URL.createObjectURL(blob)
         const audio = new Audio(audioURL)
         audio.preload = "auto"
+        audio.load() // Force load to prevent lag
 
         // Wait for audio to be loaded
         audio.addEventListener("canplaythrough", () => {
-          console.log("Audio ready to play")
+          console.log("[Studio] Recording audio ready to play")
+        })
+
+        audio.addEventListener("error", (e) => {
+          console.error("[Studio] Recording audio element error:", e)
         })
 
         setOriginalAudioEl(audio)
+        console.log("[Studio] Recording processing complete!")
 
         // Stop all tracks
         stream.getTracks().forEach(track => track.stop())
@@ -300,9 +311,13 @@ export default function StudioPage() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    console.log("[Studio] File selected:", file.name, file.type, file.size)
+
     // Validate file type
     if (!file.type.startsWith("audio/")) {
-      setAudioError("Proszę wybrać plik audio (mp3, wav, webm, etc.)")
+      const error = "Proszę wybrać plik audio (mp3, wav, webm, etc.)"
+      console.error("[Studio] Invalid file type:", file.type)
+      setAudioError(error)
       return
     }
 
@@ -311,31 +326,43 @@ export default function StudioPage() {
       setAudioError(null)
       setSelectedSessionId(null) // Clear any selected session
 
-      console.log("Loading uploaded file:", file.name, file.type, file.size)
+      console.log("[Studio] Loading uploaded file...")
 
       // Convert file to blob
-      const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+      const arrayBuffer = await file.arrayBuffer()
+      console.log("[Studio] File read as ArrayBuffer, size:", arrayBuffer.byteLength)
+
+      const blob = new Blob([arrayBuffer], { type: file.type })
+      console.log("[Studio] Blob created, setting originalAudio...")
       setOriginalAudio(blob)
 
       // Generate waveform
+      console.log("[Studio] Generating waveform...")
       const waveform = await getWaveformData(blob)
+      console.log("[Studio] Waveform generated, samples:", waveform.length)
       setOriginalWaveform(waveform)
 
       // Create audio element for playback
+      console.log("[Studio] Creating audio element...")
       const audioURL = URL.createObjectURL(blob)
       const audio = new Audio(audioURL)
       audio.preload = "auto"
       audio.load()
 
       audio.addEventListener("canplaythrough", () => {
-        console.log("Uploaded audio ready to play")
+        console.log("[Studio] Uploaded audio ready to play")
+      })
+
+      audio.addEventListener("error", (e) => {
+        console.error("[Studio] Audio element error:", e)
       })
 
       setOriginalAudioEl(audio)
+      console.log("[Studio] Upload complete!")
 
       trackEvent("audio_file_uploaded", "Studio", file.type)
     } catch (error) {
-      console.error("Failed to load uploaded file:", error)
+      console.error("[Studio] Failed to load uploaded file:", error)
       setAudioError("Błąd podczas ładowania pliku: " + (error as Error).message)
     } finally {
       setIsLoadingAudio(false)
@@ -363,6 +390,22 @@ export default function StudioPage() {
         <p className="text-sm text-muted-foreground">
           Enhance your recordings with professional audio processing
         </p>
+      </div>
+
+      {/* Debug Info Panel (temporary for debugging production issues) */}
+      <div className="bg-secondary/30 rounded-lg p-3 text-xs font-mono space-y-1 border border-border">
+        <div className="font-semibold mb-2 text-foreground">Debug Info:</div>
+        <div>originalAudio: {originalAudio ? `✓ (${originalAudio.size} bytes)` : "✗"}</div>
+        <div>originalWaveform: {originalWaveform ? `✓ (${originalWaveform.length} samples)` : "✗"}</div>
+        <div>processedAudio: {processedAudio ? `✓ (${processedAudio.size} bytes)` : "✗"}</div>
+        <div>processedWaveform: {processedWaveform ? `✓ (${processedWaveform.length} samples)` : "✗"}</div>
+        <div>isLoadingAudio: {isLoadingAudio ? "✓" : "✗"}</div>
+        <div>audioError: {audioError || "none"}</div>
+        <div>selectedSessionId: {selectedSessionId || "none"}</div>
+        <div>isProcessing: {isProcessing ? "✓" : "✗"}</div>
+        <div className="pt-2 border-t border-border mt-2">
+          Features visible: {originalAudio && !isLoadingAudio && !audioError ? "✓ YES" : "✗ NO"}
+        </div>
       </div>
 
       {/* Recording Controls */}
