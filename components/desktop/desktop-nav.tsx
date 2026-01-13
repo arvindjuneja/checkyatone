@@ -1,29 +1,34 @@
 "use client"
 
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Music2, Mic, BookOpen, Gamepad2, Music, BarChart3, Library } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface DesktopNavProps {
-  activeTab: "live" | "analysis" | "training" | "why"
-  onTabChange: (tab: "live" | "analysis" | "training" | "why") => void
+  pathname: string
   isRecording: boolean
   onStartRecording: () => void
   onStopRecording: () => void
-  trainingMode: "menu" | "exercises" | "game" | "singalong"
-  onTrainingModeChange: (mode: "menu" | "exercises" | "game" | "singalong") => void
   onOpenLibrary: () => void
 }
 
 export function DesktopNav({
-  activeTab,
-  onTabChange,
+  pathname,
   isRecording,
   onStartRecording,
   onStopRecording,
-  trainingMode,
-  onTrainingModeChange,
   onOpenLibrary,
 }: DesktopNavProps) {
+  const router = useRouter()
+
+  const isActive = (path: string) => {
+    if (path === "/") return pathname === "/"
+    return pathname.startsWith(path)
+  }
+
+  const isTrainingActive = pathname.startsWith("/training")
+
   return (
     <div className="h-full flex flex-col p-4 space-y-6 overflow-y-auto">
       {/* Quick Actions */}
@@ -52,10 +57,10 @@ export function DesktopNav({
       {/* Navigation */}
       <div className="space-y-2">
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Nawigacja</h3>
-        <button
-          onClick={() => onTabChange("live")}
+        <Link
+          href="/"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            activeTab === "live"
+            isActive("/") && pathname === "/"
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
@@ -63,11 +68,11 @@ export function DesktopNav({
           <Music2 className="w-4 h-4" />
           <span>Na żywo</span>
           <span className="ml-auto text-xs opacity-50">1</span>
-        </button>
-        <button
-          onClick={() => onTabChange("training")}
+        </Link>
+        <Link
+          href="/training"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            activeTab === "training"
+            isTrainingActive
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
@@ -75,11 +80,11 @@ export function DesktopNav({
           <BookOpen className="w-4 h-4" />
           <span>Trenuj</span>
           <span className="ml-auto text-xs opacity-50">2</span>
-        </button>
-        <button
-          onClick={() => onTabChange("analysis")}
+        </Link>
+        <Link
+          href="/analysis"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            activeTab === "analysis"
+            isActive("/analysis")
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
@@ -87,11 +92,11 @@ export function DesktopNav({
           <BarChart3 className="w-4 h-4" />
           <span>Analiza</span>
           <span className="ml-auto text-xs opacity-50">3</span>
-        </button>
-        <button
-          onClick={() => onTabChange("why")}
+        </Link>
+        <Link
+          href="/about"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            activeTab === "why"
+            isActive("/about")
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
@@ -99,46 +104,46 @@ export function DesktopNav({
           <Music className="w-4 h-4" />
           <span>Po co?</span>
           <span className="ml-auto text-xs opacity-50">4</span>
-        </button>
+        </Link>
       </div>
 
       {/* Training Modes (when on Training tab) */}
-      {activeTab === "training" && (
+      {isTrainingActive && (
         <div className="space-y-2 pt-4 border-t border-border">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tryb treningowy</h3>
-          <button
-            onClick={() => onTrainingModeChange("exercises")}
+          <Link
+            href="/training/exercises"
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              trainingMode === "exercises"
+              pathname === "/training/exercises"
                 ? "bg-pitch-good/20 text-pitch-good font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             <BookOpen className="w-4 h-4" />
             <span>Ćwiczenia</span>
-          </button>
-          <button
-            onClick={() => onTrainingModeChange("game")}
+          </Link>
+          <Link
+            href="/training/game"
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              trainingMode === "game"
+              pathname === "/training/game"
                 ? "bg-pitch-good/20 text-pitch-good font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             <Gamepad2 className="w-4 h-4" />
             <span>Hit the Note!</span>
-          </button>
-          <button
-            onClick={() => onTrainingModeChange("singalong")}
+          </Link>
+          <Link
+            href="/training/singalong"
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              trainingMode === "singalong"
+              pathname === "/training/singalong"
                 ? "bg-pitch-good/20 text-pitch-good font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent"
             }`}
           >
             <Music className="w-4 h-4" />
             <span>Śpiewaj z piosenką</span>
-          </button>
+          </Link>
         </div>
       )}
 

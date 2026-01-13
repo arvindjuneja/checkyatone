@@ -16,14 +16,13 @@ import { Music2, Mic, Pause, RotateCcw, LayoutList, Maximize2, BookOpen, Gamepad
 interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  activeTab: "live" | "analysis" | "training" | "why"
-  onTabChange: (tab: "live" | "analysis" | "training" | "why") => void
+  pathname: string
+  onNavigate: (path: string) => void
   onStartRecording: () => void
   onStopRecording: () => void
   onTogglePause: () => void
   onReset: () => void
   onToggleFocusMode: () => void
-  onSelectTrainingMode?: (mode: "exercises" | "game" | "singalong") => void
   isRecording: boolean
   isPaused: boolean
 }
@@ -31,14 +30,13 @@ interface CommandPaletteProps {
 export function CommandPalette({
   open,
   onOpenChange,
-  activeTab,
-  onTabChange,
+  pathname,
+  onNavigate,
   onStartRecording,
   onStopRecording,
   onTogglePause,
   onReset,
   onToggleFocusMode,
-  onSelectTrainingMode,
   isRecording,
   isPaused,
 }: CommandPaletteProps) {
@@ -58,28 +56,28 @@ export function CommandPalette({
         
         <CommandGroup heading="Nawigacja">
           <CommandItem
-            onSelect={() => runCommand(() => onTabChange("live"))}
+            onSelect={() => runCommand(() => onNavigate("/"))}
           >
             <Music2 className="mr-2 h-4 w-4" />
             <span>Na żywo</span>
             <span className="ml-auto text-xs text-muted-foreground">1</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => onTabChange("training"))}
+            onSelect={() => runCommand(() => onNavigate("/training"))}
           >
             <BookOpen className="mr-2 h-4 w-4" />
             <span>Trenuj</span>
             <span className="ml-auto text-xs text-muted-foreground">2</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => onTabChange("analysis"))}
+            onSelect={() => runCommand(() => onNavigate("/analysis"))}
           >
             <LayoutList className="mr-2 h-4 w-4" />
             <span>Analiza</span>
             <span className="ml-auto text-xs text-muted-foreground">3</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => onTabChange("why"))}
+            onSelect={() => runCommand(() => onNavigate("/about"))}
           >
             <Music className="mr-2 h-4 w-4" />
             <span>Po co?</span>
@@ -125,24 +123,24 @@ export function CommandPalette({
         </CommandGroup>
 
 
-        {activeTab === "training" && onSelectTrainingMode && (
+        {pathname.startsWith("/training") && (
           <>
             <CommandSeparator />
             <CommandGroup heading="Tryb treningowy">
               <CommandItem
-                onSelect={() => runCommand(() => onSelectTrainingMode("exercises"))}
+                onSelect={() => runCommand(() => onNavigate("/training/exercises"))}
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 <span>Ćwiczenia</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => onSelectTrainingMode("game"))}
+                onSelect={() => runCommand(() => onNavigate("/training/game"))}
               >
                 <Gamepad2 className="mr-2 h-4 w-4" />
                 <span>Hit the Note!</span>
               </CommandItem>
               <CommandItem
-                onSelect={() => runCommand(() => onSelectTrainingMode("singalong"))}
+                onSelect={() => runCommand(() => onNavigate("/training/singalong"))}
               >
                 <Music className="mr-2 h-4 w-4" />
                 <span>Śpiewaj z piosenką</span>
