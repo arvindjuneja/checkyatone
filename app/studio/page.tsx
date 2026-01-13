@@ -13,7 +13,7 @@ import {
 import { WaveformDisplay } from "@/components/waveform-display"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload } from "lucide-react"
 
 export default function StudioPage() {
   const { sessions } = useSessionLibrary()
@@ -40,6 +40,9 @@ export default function StudioPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // File upload
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     document.title = "Vocal Coach - Studio"
@@ -293,6 +296,56 @@ export default function StudioPage() {
     }
   }
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("audio/")) {
+      setAudioError("Proszę wybrać plik audio (mp3, wav, webm, etc.)")
+      return
+    }
+
+    try {
+      setIsLoadingAudio(true)
+      setAudioError(null)
+      setSelectedSessionId(null) // Clear any selected session
+
+      console.log("Loading uploaded file:", file.name, file.type, file.size)
+
+      // Convert file to blob
+      const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+      setOriginalAudio(blob)
+
+      // Generate waveform
+      const waveform = await getWaveformData(blob)
+      setOriginalWaveform(waveform)
+
+      // Create audio element for playback
+      const audioURL = URL.createObjectURL(blob)
+      const audio = new Audio(audioURL)
+      audio.preload = "auto"
+      audio.load()
+
+      audio.addEventListener("canplaythrough", () => {
+        console.log("Uploaded audio ready to play")
+      })
+
+      setOriginalAudioEl(audio)
+
+      trackEvent("audio_file_uploaded", "Studio", file.type)
+    } catch (error) {
+      console.error("Failed to load uploaded file:", error)
+      setAudioError("Błąd podczas ładowania pliku: " + (error as Error).message)
+    } finally {
+      setIsLoadingAudio(false)
+      // Reset file input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -316,9 +369,9 @@ export default function StudioPage() {
       <div className="bg-card rounded-xl p-6 border border-border">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold">Nagraj w Studio</h3>
+            <h3 className="font-semibold">Wczytaj Audio</h3>
             <p className="text-xs text-muted-foreground">
-              Nagraj bezpośrednio tutaj lub wybierz istniejącą sesję poniżej
+              Nagraj, wgraj plik, lub wybierz istniejącą sesję poniżej
             </p>
           </div>
           {isRecording && (
@@ -328,17 +381,36 @@ export default function StudioPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {!isRecording ? (
-            <Button
-              onClick={startStudioRecording}
-              disabled={isLoadingAudio}
-              className="gap-2"
-              size="lg"
-            >
-              <Mic className="w-4 h-4" />
-              Rozpocznij nagrywanie
-            </Button>
+            <>
+              <Button
+                onClick={startStudioRecording}
+                disabled={isLoadingAudio}
+                className="gap-2"
+                size="lg"
+              >
+                <Mic className="w-4 h-4" />
+                Nagraj
+              </Button>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoadingAudio}
+                variant="outline"
+                className="gap-2"
+                size="lg"
+              >
+                <Upload className="w-4 h-4" />
+                Wgraj plik
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </>
           ) : (
             <Button
               onClick={stopStudioRecording}
@@ -353,7 +425,7 @@ export default function StudioPage() {
 
           {originalAudio && !selectedSessionId && (
             <span className="text-sm text-muted-foreground">
-              ✓ Nagranie gotowe do przetworzenia
+              ✓ Audio gotowe do przetworzenia
             </span>
           )}
         </div>
