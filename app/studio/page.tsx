@@ -392,22 +392,6 @@ export default function StudioPage() {
         </p>
       </div>
 
-      {/* Debug Info Panel (temporary for debugging production issues) */}
-      <div className="bg-secondary/30 rounded-lg p-3 text-xs font-mono space-y-1 border border-border">
-        <div className="font-semibold mb-2 text-foreground">Debug Info:</div>
-        <div>originalAudio: {originalAudio ? `✓ (${originalAudio.size} bytes)` : "✗"}</div>
-        <div>originalWaveform: {originalWaveform ? `✓ (${originalWaveform.length} samples)` : "✗"}</div>
-        <div>processedAudio: {processedAudio ? `✓ (${processedAudio.size} bytes)` : "✗"}</div>
-        <div>processedWaveform: {processedWaveform ? `✓ (${processedWaveform.length} samples)` : "✗"}</div>
-        <div>isLoadingAudio: {isLoadingAudio ? "✓" : "✗"}</div>
-        <div>audioError: {audioError || "none"}</div>
-        <div>selectedSessionId: {selectedSessionId || "none"}</div>
-        <div>isProcessing: {isProcessing ? "✓" : "✗"}</div>
-        <div className="pt-2 border-t border-border mt-2">
-          Features visible: {originalAudio && !isLoadingAudio && !audioError ? "✓ YES" : "✗ NO"}
-        </div>
-      </div>
-
       {/* Recording Controls */}
       <div className="bg-card rounded-xl p-6 border border-border">
         <div className="flex items-center justify-between mb-4">
