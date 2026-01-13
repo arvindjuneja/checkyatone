@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Music2, Mic, BookOpen, Gamepad2, Music, BarChart3, Library, TrendingUp, Sparkles } from "lucide-react"
+import { Music2, Mic, BookOpen, Gamepad2, Music, BarChart3, Library, TrendingUp, Sparkles, Mic2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface DesktopNavProps {
@@ -118,6 +118,18 @@ export function DesktopNav({
           <span className="ml-auto text-xs opacity-50">5</span>
         </Link>
         <Link
+          href="/karaoke"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            isActive("/karaoke")
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Mic2 className="w-4 h-4" />
+          <span>Karaoke</span>
+          <span className="ml-auto text-xs opacity-50">6</span>
+        </Link>
+        <Link
           href="/about"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
             isActive("/about")
@@ -127,7 +139,7 @@ export function DesktopNav({
         >
           <Music className="w-4 h-4" />
           <span>Po co?</span>
-          <span className="ml-auto text-xs opacity-50">6</span>
+          <span className="ml-auto text-xs opacity-50">7</span>
         </Link>
       </div>
 

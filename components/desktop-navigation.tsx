@@ -151,6 +151,12 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
     },
     {
       key: "6",
+      handler: () => router.push("/karaoke"),
+      description: "Przełącz na Karaoke",
+      preventDefault: true,
+    },
+    {
+      key: "7",
       handler: () => router.push("/about"),
       description: "Przełącz na Po co?",
       preventDefault: true,

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { useSessionLibrary } from "@/hooks/use-session-library"
 import { getSessionAudio } from "@/lib/audio-storage"
 import {
@@ -15,7 +16,8 @@ import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
 import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload } from "lucide-react"
 
-export default function StudioPage() {
+function StudioContent() {
+  const searchParams = useSearchParams()
   const { sessions } = useSessionLibrary()
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [originalAudio, setOriginalAudio] = useState<Blob | null>(null)
@@ -47,7 +49,43 @@ export default function StudioPage() {
   useEffect(() => {
     document.title = "Vocal Coach - Studio"
     trackPageView("Vocal Coach - Studio", "/studio")
-  }, [])
+
+    // Load karaoke audio from localStorage if source=karaoke
+    const source = searchParams.get("source")
+    if (source === "karaoke") {
+      const karaokeData = localStorage.getItem("karaoke-temp-audio")
+      if (karaokeData) {
+        console.log("[Studio] Loading karaoke audio from localStorage")
+
+        // Convert data URL to blob
+        fetch(karaokeData)
+          .then(res => res.blob())
+          .then(async (blob) => {
+            console.log("[Studio] Karaoke audio loaded, size:", blob.size)
+            setOriginalAudio(blob)
+
+            // Generate waveform
+            const waveform = await getWaveformData(blob)
+            setOriginalWaveform(waveform)
+
+            // Create audio element
+            const audioURL = URL.createObjectURL(blob)
+            const audio = new Audio(audioURL)
+            audio.preload = "auto"
+            audio.load()
+            setOriginalAudioEl(audio)
+
+            // Clean up
+            localStorage.removeItem("karaoke-temp-audio")
+            console.log("[Studio] Karaoke audio ready for processing!")
+          })
+          .catch(err => {
+            console.error("[Studio] Failed to load karaoke audio:", err)
+            setAudioError("Nie udało się załadować nagrania karaoke")
+          })
+      }
+    }
+  }, [searchParams])
 
   // Load audio when session is selected
   useEffect(() => {
@@ -757,5 +795,13 @@ export default function StudioPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center">Ładowanie...</div>}>
+      <StudioContent />
+    </Suspense>
   )
 }

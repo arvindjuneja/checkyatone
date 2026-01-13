@@ -11,7 +11,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command"
-import { Music2, Mic, Pause, RotateCcw, LayoutList, Maximize2, BookOpen, Gamepad2, Music, TrendingUp, BarChart3, Sparkles } from "lucide-react"
+import { Music2, Mic, Pause, RotateCcw, LayoutList, Maximize2, BookOpen, Gamepad2, Music, TrendingUp, BarChart3, Sparkles, Mic2 } from "lucide-react"
 
 interface CommandPaletteProps {
   open: boolean
@@ -91,11 +91,18 @@ export function CommandPalette({
             <span className="ml-auto text-xs text-muted-foreground">5</span>
           </CommandItem>
           <CommandItem
+            onSelect={() => runCommand(() => onNavigate("/karaoke"))}
+          >
+            <Mic2 className="mr-2 h-4 w-4" />
+            <span>Karaoke</span>
+            <span className="ml-auto text-xs text-muted-foreground">6</span>
+          </CommandItem>
+          <CommandItem
             onSelect={() => runCommand(() => onNavigate("/about"))}
           >
             <Music className="mr-2 h-4 w-4" />
             <span>Po co?</span>
-            <span className="ml-auto text-xs text-muted-foreground">6</span>
+            <span className="ml-auto text-xs text-muted-foreground">7</span>
           </CommandItem>
         </CommandGroup>
 
