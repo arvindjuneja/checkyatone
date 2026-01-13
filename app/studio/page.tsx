@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSessionLibrary } from "@/hooks/use-session-library"
 import { getSessionAudio } from "@/lib/audio-storage"
 import {
@@ -13,7 +13,7 @@ import {
 import { WaveformDisplay } from "@/components/waveform-display"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save } from "lucide-react"
 
 export default function StudioPage() {
   const { sessions } = useSessionLibrary()
@@ -28,9 +28,18 @@ export default function StudioPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isPlayingOriginal, setIsPlayingOriginal] = useState(false)
   const [isPlayingProcessed, setIsPlayingProcessed] = useState(false)
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false)
+  const [audioError, setAudioError] = useState<string | null>(null)
 
   const [originalAudioEl, setOriginalAudioEl] = useState<HTMLAudioElement | null>(null)
   const [processedAudioEl, setProcessedAudioEl] = useState<HTMLAudioElement | null>(null)
+
+  // Studio recording
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     document.title = "Vocal Coach - Studio"
@@ -39,18 +48,42 @@ export default function StudioPage() {
 
   // Load audio when session is selected
   useEffect(() => {
-    if (!selectedSessionId) return
+    if (!selectedSessionId) {
+      setOriginalAudio(null)
+      setOriginalWaveform(null)
+      setProcessedAudio(null)
+      setProcessedWaveform(null)
+      setAudioError(null)
+      return
+    }
 
     const loadAudio = async () => {
-      const audioBlob = await getSessionAudio(selectedSessionId)
-      if (audioBlob) {
-        setOriginalAudio(audioBlob)
-        const waveform = await getWaveformData(audioBlob)
-        setOriginalWaveform(waveform)
+      setIsLoadingAudio(true)
+      setAudioError(null)
+      try {
+        console.log("Loading audio for session:", selectedSessionId)
+        const audioBlob = await getSessionAudio(selectedSessionId)
 
-        // Create audio element for playback
-        const audio = new Audio(URL.createObjectURL(audioBlob))
-        setOriginalAudioEl(audio)
+        if (audioBlob) {
+          console.log("Audio blob loaded, size:", audioBlob.size)
+          setOriginalAudio(audioBlob)
+
+          const waveform = await getWaveformData(audioBlob)
+          console.log("Waveform generated, samples:", waveform.length)
+          setOriginalWaveform(waveform)
+
+          // Create audio element for playback
+          const audio = new Audio(URL.createObjectURL(audioBlob))
+          setOriginalAudioEl(audio)
+        } else {
+          console.error("No audio blob found for session:", selectedSessionId)
+          setAudioError("Nie znaleziono nagrania audio dla tej sesji. Spróbuj nagrać nową sesję.")
+        }
+      } catch (error) {
+        console.error("Failed to load audio:", error)
+        setAudioError("Błąd podczas ładowania audio: " + (error as Error).message)
+      } finally {
+        setIsLoadingAudio(false)
       }
     }
 
@@ -146,6 +179,76 @@ export default function StudioPage() {
     setSelectedPreset("custom") // Switch to custom when manually adjusting
   }
 
+  const startStudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
+
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+
+        // Set as original audio
+        setOriginalAudio(blob)
+        const waveform = await getWaveformData(blob)
+        setOriginalWaveform(waveform)
+
+        // Create audio element for playback
+        const audio = new Audio(URL.createObjectURL(blob))
+        setOriginalAudioEl(audio)
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop())
+
+        trackEvent("studio_recording_completed", "Studio", undefined, recordingDuration)
+      }
+
+      mediaRecorder.start(100)
+      mediaRecorderRef.current = mediaRecorder
+      setIsRecording(true)
+      setRecordingDuration(0)
+
+      // Start timer
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1)
+      }, 1000)
+
+      trackEvent("studio_recording_started", "Studio")
+    } catch (error) {
+      console.error("Failed to start recording:", error)
+      setAudioError("Nie udało się rozpocząć nagrywania. Sprawdź uprawnienia mikrofonu.")
+    }
+  }
+
+  const stopStudioRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current = null
+      setIsRecording(false)
+
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+        recordingTimerRef.current = null
+      }
+
+      // Clear any selected session
+      setSelectedSessionId(null)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
@@ -159,23 +262,67 @@ export default function StudioPage() {
         </p>
       </div>
 
-      {/* Select Recording */}
-      {sessionsWithAudio.length === 0 ? (
-        <div className="bg-card rounded-xl p-8 border border-border text-center">
-          <p className="text-muted-foreground">
-            No recordings with audio found. Record a session first to use the studio.
-          </p>
+      {/* Recording Controls */}
+      <div className="bg-card rounded-xl p-6 border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold">Nagraj w Studio</h3>
+            <p className="text-xs text-muted-foreground">
+              Nagraj bezpośrednio tutaj lub wybierz istniejącą sesję poniżej
+            </p>
+          </div>
+          {isRecording && (
+            <div className="text-3xl font-mono font-bold text-pitch-perfect">
+              {formatTime(recordingDuration)}
+            </div>
+          )}
         </div>
-      ) : (
+
+        <div className="flex items-center gap-3">
+          {!isRecording ? (
+            <Button
+              onClick={startStudioRecording}
+              disabled={isLoadingAudio}
+              className="gap-2"
+              size="lg"
+            >
+              <Mic className="w-4 h-4" />
+              Rozpocznij nagrywanie
+            </Button>
+          ) : (
+            <Button
+              onClick={stopStudioRecording}
+              variant="destructive"
+              className="gap-2"
+              size="lg"
+            >
+              <Square className="w-4 h-4" />
+              Zatrzymaj nagrywanie
+            </Button>
+          )}
+
+          {originalAudio && !selectedSessionId && (
+            <span className="text-sm text-muted-foreground">
+              ✓ Nagranie gotowe do przetworzenia
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Select Recording */}
+      {sessionsWithAudio.length > 0 && (
         <>
           <div className="bg-card rounded-xl p-4 border border-border">
-            <label className="text-sm font-semibold mb-2 block">Select Recording</label>
+            <label className="text-sm font-semibold mb-2 block">
+              Lub wybierz poprzednie nagranie
+            </label>
             <select
               value={selectedSessionId || ""}
               onChange={(e) => setSelectedSessionId(e.target.value || null)}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect"
+              disabled={isRecording}
+              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect disabled:opacity-50"
             >
-              <option value="">Choose a recording...</option>
+              <option value="">Wybierz nagranie...</option>
               {sessionsWithAudio.map((session) => (
                 <option key={session.id} value={session.id}>
                   {session.name} - {new Date(session.date).toLocaleDateString("pl-PL")}
@@ -184,7 +331,24 @@ export default function StudioPage() {
             </select>
           </div>
 
-          {originalAudio && (
+          {isLoadingAudio && (
+            <div className="bg-card rounded-xl p-8 border border-border text-center">
+              <div className="animate-spin w-8 h-8 border-4 border-pitch-perfect border-t-transparent rounded-full mx-auto mb-3" />
+              <p className="text-muted-foreground">Ładowanie audio...</p>
+            </div>
+          )}
+
+          {audioError && (
+            <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-6 text-center">
+              <p className="text-destructive font-semibold mb-2">Błąd</p>
+              <p className="text-sm text-muted-foreground">{audioError}</p>
+              <p className="text-xs text-muted-foreground mt-4">
+                💡 Wskazówka: Ta sesja może być stara. Nagraj nową sesję na stronie "Na żywo" aby użyć Studio.
+              </p>
+            </div>
+          )}
+
+          {originalAudio && !isLoadingAudio && !audioError && (
             <>
               {/* Waveforms */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -402,15 +566,15 @@ export default function StudioPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button
                   onClick={handleProcess}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isRecording}
                   className="flex-1 gap-2"
                   size="lg"
                 >
                   <Sparkles className="w-4 h-4" />
-                  {isProcessing ? "Processing..." : "Process Audio"}
+                  {isProcessing ? "Przetwarzanie..." : "Przetwórz Audio"}
                 </Button>
 
                 {processedAudio && (
@@ -422,7 +586,7 @@ export default function StudioPage() {
                       size="lg"
                     >
                       <Download className="w-4 h-4" />
-                      Download
+                      Pobierz
                     </Button>
                     <Button
                       onClick={() => {
@@ -432,6 +596,7 @@ export default function StudioPage() {
                       }}
                       variant="outline"
                       size="lg"
+                      title="Reset"
                     >
                       <RotateCcw className="w-4 h-4" />
                     </Button>
