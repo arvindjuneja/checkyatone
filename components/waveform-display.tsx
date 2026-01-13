@@ -30,80 +30,35 @@ export function WaveformDisplay({
     // Clear canvas
     ctx.clearRect(0, 0, width, height)
 
-    // Fill background
-    ctx.fillStyle = "hsl(var(--secondary))"
+    // Fill background (subtle)
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)"
     ctx.fillRect(0, 0, width, height)
 
     // Draw center line
-    ctx.strokeStyle = "hsl(var(--border))"
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)"
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(0, height / 2)
     ctx.lineTo(width, height / 2)
     ctx.stroke()
 
-    // Draw waveform with fill
-    ctx.fillStyle = color
-    ctx.globalAlpha = 0.3
-    ctx.beginPath()
-
     const step = width / waveformData.length
     const amplitudeScale = height / 2
 
-    // Draw filled waveform shape
-    ctx.moveTo(0, height / 2)
-
-    // Top half
+    // Draw bars for each sample (like a proper audio waveform)
     for (let i = 0; i < waveformData.length; i++) {
       const x = i * step
-      const y = height / 2 - waveformData[i] * amplitudeScale
-      ctx.lineTo(x, y)
+      const barHeight = waveformData[i] * amplitudeScale
+
+      // Draw semi-transparent bar
+      ctx.fillStyle = color + "33" // Add 20% opacity
+      ctx.fillRect(x, height / 2 - barHeight, Math.max(1, step * 0.8), barHeight * 2)
+
+      // Draw brighter center line
+      ctx.fillStyle = color
+      ctx.fillRect(x, height / 2 - barHeight, Math.max(1, step * 0.8), 2)
+      ctx.fillRect(x, height / 2 + barHeight - 2, Math.max(1, step * 0.8), 2)
     }
-
-    // Return to center at end
-    ctx.lineTo(width, height / 2)
-
-    // Bottom half (mirrored)
-    for (let i = waveformData.length - 1; i >= 0; i--) {
-      const x = i * step
-      const y = height / 2 + waveformData[i] * amplitudeScale
-      ctx.lineTo(x, y)
-    }
-
-    ctx.closePath()
-    ctx.fill()
-
-    // Draw outline
-    ctx.globalAlpha = 1
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2
-    ctx.beginPath()
-
-    for (let i = 0; i < waveformData.length; i++) {
-      const x = i * step
-      const y = height / 2 - waveformData[i] * amplitudeScale
-
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    }
-    ctx.stroke()
-
-    // Mirror outline
-    ctx.beginPath()
-    for (let i = 0; i < waveformData.length; i++) {
-      const x = i * step
-      const y = height / 2 + waveformData[i] * amplitudeScale
-
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    }
-    ctx.stroke()
   }, [waveformData, color, height])
 
   return (
