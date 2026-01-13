@@ -37,6 +37,7 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
     sensitivity,
     updateGain,
     updateSensitivity,
+    saveAudioToSession,
   } = useAudioRecorderContext()
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
@@ -93,12 +94,22 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
         : recordingDuration
 
       const sessionType = pathname.startsWith("/training") ? "training" : "live"
-      saveSession(pitchHistory, sessionType, duration)
+
+      // Save session with hasAudio flag
+      const sessionId = saveSession(pitchHistory, sessionType, duration, undefined, true)
+
+      // Also save audio if available
+      if (sessionId) {
+        saveAudioToSession(sessionId).catch((error) => {
+          console.error("Failed to save audio:", error)
+        })
+      }
+
       recordingStartTimeRef.current = null
     }
 
     wasRecordingRef.current = isRecording
-  }, [isRecording, pitchHistory, saveSession, pathname, recordingDuration])
+  }, [isRecording, pitchHistory, saveSession, pathname, recordingDuration, saveAudioToSession])
 
   // Hotkeys
   useHotkeys([

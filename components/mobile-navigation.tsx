@@ -38,10 +38,10 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
 
         {/* Tab Navigation */}
         <div className="px-2 pb-2">
-          <div className="flex bg-secondary/50 rounded-xl p-1 gap-1">
+          <div className="flex bg-secondary/50 rounded-xl p-1 gap-1 overflow-x-auto">
             <Link
               href="/"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center ${
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
                 isActive("/") && pathname === "/"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -51,7 +51,7 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
             </Link>
             <Link
               href="/training"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center ${
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
                 isActive("/training")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -60,8 +60,18 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
               Trenuj
             </Link>
             <Link
+              href="/progress"
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
+                isActive("/progress")
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Postępy
+            </Link>
+            <Link
               href="/analysis"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center ${
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
                 isActive("/analysis")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
@@ -71,7 +81,7 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
             </Link>
             <Link
               href="/about"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center ${
+              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
                 isActive("/about")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

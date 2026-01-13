@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { type PitchData } from "@/lib/pitch-detector"
 import { trackEvent } from "@/lib/analytics"
+import { deleteSessionAudio } from "@/lib/audio-storage"
 
 export interface SessionMetadata {
   id: string
@@ -10,6 +11,7 @@ export interface SessionMetadata {
   duration: number
   noteCount: number
   averageAccuracy?: number
+  hasAudio?: boolean
 }
 
 export interface Session extends SessionMetadata {
@@ -49,7 +51,8 @@ export function useSessionLibrary() {
       pitchHistory: PitchData[],
       mode: "live" | "training" | "analysis",
       duration: number,
-      customName?: string
+      customName?: string,
+      hasAudio?: boolean
     ) => {
       if (pitchHistory.length === 0) return null
 
@@ -66,6 +69,7 @@ export function useSessionLibrary() {
         duration,
         noteCount: pitchHistory.length,
         averageAccuracy: Math.round(averageAccuracy),
+        hasAudio: hasAudio || false,
         pitchHistory,
       }
 
@@ -125,7 +129,7 @@ export function useSessionLibrary() {
   }, [])
 
   // Delete session
-  const deleteSession = useCallback((sessionId: string) => {
+  const deleteSession = useCallback(async (sessionId: string) => {
     try {
       const stored = localStorage.getItem(SESSIONS_STORAGE_KEY)
       if (!stored) return
@@ -134,6 +138,9 @@ export function useSessionLibrary() {
       const filtered = sessions.filter((s) => s.id !== sessionId)
 
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(filtered))
+
+      // Also delete audio if it exists
+      await deleteSessionAudio(sessionId)
 
       // Track session deleted
       trackEvent("session_deleted", "Session")
@@ -171,6 +178,35 @@ export function useSessionLibrary() {
     }
   }, [])
 
+  // Clear all sessions
+  const clearAllSessions = useCallback(async () => {
+    try {
+      // Clear sessions from localStorage
+      localStorage.removeItem(SESSIONS_STORAGE_KEY)
+
+      // Clear all audio from IndexedDB
+      // Note: This is a simple approach - ideally we'd iterate through all sessions
+      // and delete their audio individually, but for a reset operation this is acceptable
+      if (typeof window !== "undefined") {
+        const dbs = await window.indexedDB.databases()
+        const audioDBs = dbs.filter(db => db.name === "vocal-coach-audio")
+        for (const db of audioDBs) {
+          if (db.name) {
+            window.indexedDB.deleteDatabase(db.name)
+          }
+        }
+      }
+
+      // Track reset
+      trackEvent("all_sessions_cleared", "Session")
+
+      // Update state
+      setSessions([])
+    } catch (error) {
+      console.error("Failed to clear sessions:", error)
+    }
+  }, [])
+
   return {
     sessions,
     loading,
@@ -178,5 +214,6 @@ export function useSessionLibrary() {
     loadSession,
     deleteSession,
     renameSession,
+    clearAllSessions,
   }
 }

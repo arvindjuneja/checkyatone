@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
 import { trackPageView, trackEvent } from "@/lib/analytics"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
@@ -8,7 +8,9 @@ import { CircleVisualizer } from "@/components/circle-visualizer"
 import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 import { AudioSettings } from "@/components/audio-settings"
+import { SaveSessionDialog } from "@/components/save-session-dialog"
 import { LayoutList, Circle } from "lucide-react"
+import { type PitchData } from "@/lib/pitch-detector"
 
 export default function LivePage() {
   const {
@@ -30,6 +32,9 @@ export default function LivePage() {
 
   const [visualizationMode, setVisualizationMode] = useState<"timeline" | "circle">("timeline")
   const [isDesktop, setIsDesktop] = useState(false)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
+  const [recordedPitchHistory, setRecordedPitchHistory] = useState<PitchData[]>([])
+  const [recordedDuration, setRecordedDuration] = useState(0)
 
   // Detect screen size
   useEffect(() => {
@@ -48,6 +53,19 @@ export default function LivePage() {
     document.title = "Vocal Coach - Na żywo"
     trackPageView("Vocal Coach - Na żywo", "/")
   }, [])
+
+  // Wrap stop recording to show save dialog
+  const handleStopRecording = useCallback(() => {
+    // Save current pitch history and duration before stopping
+    setRecordedPitchHistory([...pitchHistory])
+    setRecordedDuration(Math.floor(recordingDuration / 1000))
+    stopRecording()
+
+    // Show save dialog if there's data to save
+    if (pitchHistory.length > 0) {
+      setShowSaveDialog(true)
+    }
+  }, [pitchHistory, recordingDuration, stopRecording])
 
   return (
     <div className="space-y-4">
@@ -118,7 +136,7 @@ export default function LivePage() {
               isPaused={isPaused}
               hasRecording={hasRecording}
               onStartRecording={startRecording}
-              onStopRecording={stopRecording}
+              onStopRecording={handleStopRecording}
               onTogglePause={togglePause}
               onReset={reset}
               recordingDuration={recordingDuration}
@@ -126,6 +144,15 @@ export default function LivePage() {
           </div>
         </>
       )}
+
+      {/* Save Session Dialog */}
+      <SaveSessionDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        pitchHistory={recordedPitchHistory}
+        duration={recordedDuration}
+        mode="live"
+      />
 
       {/* Desktop Layout */}
       {isDesktop && (

@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useSessionLibrary, type SessionMetadata, type Session } from "@/hooks/use-session-library"
 import { Button } from "@/components/ui/button"
-import { Trash2, Download, Edit2, Check, X, ArrowLeft } from "lucide-react"
+import { Trash2, Download, Edit2, Check, X, ArrowLeft, Volume2 } from "lucide-react"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
+import { AudioPlayback } from "@/components/audio-playback"
+import { getSessionAudio } from "@/lib/audio-storage"
 
 interface SessionLibraryProps {
   onClose?: () => void
@@ -16,6 +18,52 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
   const [compareSession, setCompareSession] = useState<Session | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
+  const [selectedAudioURL, setSelectedAudioURL] = useState<string | null>(null)
+  const [compareAudioURL, setCompareAudioURL] = useState<string | null>(null)
+
+  // Load audio when session is selected
+  useEffect(() => {
+    if (selectedSession) {
+      getSessionAudio(selectedSession.id).then((blob) => {
+        if (blob) {
+          setSelectedAudioURL(URL.createObjectURL(blob))
+        }
+      })
+    } else {
+      if (selectedAudioURL) {
+        URL.revokeObjectURL(selectedAudioURL)
+      }
+      setSelectedAudioURL(null)
+    }
+
+    return () => {
+      if (selectedAudioURL) {
+        URL.revokeObjectURL(selectedAudioURL)
+      }
+    }
+  }, [selectedSession?.id])
+
+  // Load audio for compare session
+  useEffect(() => {
+    if (compareSession) {
+      getSessionAudio(compareSession.id).then((blob) => {
+        if (blob) {
+          setCompareAudioURL(URL.createObjectURL(blob))
+        }
+      })
+    } else {
+      if (compareAudioURL) {
+        URL.revokeObjectURL(compareAudioURL)
+      }
+      setCompareAudioURL(null)
+    }
+
+    return () => {
+      if (compareAudioURL) {
+        URL.revokeObjectURL(compareAudioURL)
+      }
+    }
+  }, [compareSession?.id])
 
   const handleLoadSession = (sessionId: string) => {
     const session = loadSession(sessionId)
@@ -93,32 +141,57 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
 
         {/* Selected Session */}
         <div className="bg-card rounded-xl p-4 border border-border space-y-4">
-          <div>
-            <h3 className="text-lg font-bold">{selectedSession.name}</h3>
-            <p className="text-sm text-muted-foreground">
-              {selectedSession.date.toLocaleDateString("pl-PL")} • {selectedSession.duration}s • {selectedSession.noteCount} nut
-              {selectedSession.averageAccuracy && ` • Trafność: ${selectedSession.averageAccuracy}%`}
-            </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-bold">{selectedSession.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {selectedSession.date.toLocaleDateString("pl-PL")} • {selectedSession.duration}s • {selectedSession.noteCount} nut
+                {selectedSession.averageAccuracy && ` • Trafność: ${selectedSession.averageAccuracy}%`}
+              </p>
+            </div>
+            {selectedAudioURL && (
+              <div className="flex items-center gap-1 text-xs text-pitch-perfect">
+                <Volume2 className="w-3 h-3" />
+                <span>Audio</span>
+              </div>
+            )}
           </div>
-          <div className="bg-background rounded-lg p-3">
-            <PitchVisualizer
+
+          {selectedAudioURL ? (
+            <AudioPlayback
+              audioURL={selectedAudioURL}
               pitchHistory={selectedSession.pitchHistory}
-              currentPitch={null}
-              isRecording={false}
+              sessionDuration={selectedSession.duration}
             />
-          </div>
+          ) : (
+            <div className="bg-background rounded-lg p-3">
+              <PitchVisualizer
+                pitchHistory={selectedSession.pitchHistory}
+                currentPitch={null}
+                isRecording={false}
+              />
+            </div>
+          )}
         </div>
 
         {/* Compare Session */}
         {compareSession && (
           <div className="bg-card rounded-xl p-4 border border-pitch-good space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold">{compareSession.name}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {compareSession.date.toLocaleDateString("pl-PL")} • {compareSession.duration}s • {compareSession.noteCount} nut
-                  {compareSession.averageAccuracy && ` • Trafność: ${compareSession.averageAccuracy}%`}
-                </p>
+              <div className="flex items-start gap-3 flex-1">
+                <div>
+                  <h3 className="text-lg font-bold">{compareSession.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {compareSession.date.toLocaleDateString("pl-PL")} • {compareSession.duration}s • {compareSession.noteCount} nut
+                    {compareSession.averageAccuracy && ` • Trafność: ${compareSession.averageAccuracy}%`}
+                  </p>
+                </div>
+                {compareAudioURL && (
+                  <div className="flex items-center gap-1 text-xs text-pitch-perfect">
+                    <Volume2 className="w-3 h-3" />
+                    <span>Audio</span>
+                  </div>
+                )}
               </div>
               <Button
                 variant="ghost"
@@ -128,13 +201,22 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <div className="bg-background rounded-lg p-3">
-              <PitchVisualizer
+
+            {compareAudioURL ? (
+              <AudioPlayback
+                audioURL={compareAudioURL}
                 pitchHistory={compareSession.pitchHistory}
-                currentPitch={null}
-                isRecording={false}
+                sessionDuration={compareSession.duration}
               />
-            </div>
+            ) : (
+              <div className="bg-background rounded-lg p-3">
+                <PitchVisualizer
+                  pitchHistory={compareSession.pitchHistory}
+                  currentPitch={null}
+                  isRecording={false}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -267,6 +349,15 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
                         <span>•</span>
                         <span className="text-pitch-perfect font-semibold">
                           {session.averageAccuracy}% trafności
+                        </span>
+                      </>
+                    )}
+                    {session.hasAudio && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-pitch-good">
+                          <Volume2 className="w-3 h-3" />
+                          Audio
                         </span>
                       </>
                     )}
