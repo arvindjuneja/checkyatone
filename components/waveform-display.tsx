@@ -30,6 +30,10 @@ export function WaveformDisplay({
     // Clear canvas
     ctx.clearRect(0, 0, width, height)
 
+    // Fill background
+    ctx.fillStyle = "hsl(var(--secondary))"
+    ctx.fillRect(0, 0, width, height)
+
     // Draw center line
     ctx.strokeStyle = "hsl(var(--border))"
     ctx.lineWidth = 1
@@ -38,13 +42,42 @@ export function WaveformDisplay({
     ctx.lineTo(width, height / 2)
     ctx.stroke()
 
-    // Draw waveform
-    ctx.strokeStyle = color
-    ctx.lineWidth = 2
+    // Draw waveform with fill
+    ctx.fillStyle = color
+    ctx.globalAlpha = 0.3
     ctx.beginPath()
 
     const step = width / waveformData.length
     const amplitudeScale = height / 2
+
+    // Draw filled waveform shape
+    ctx.moveTo(0, height / 2)
+
+    // Top half
+    for (let i = 0; i < waveformData.length; i++) {
+      const x = i * step
+      const y = height / 2 - waveformData[i] * amplitudeScale
+      ctx.lineTo(x, y)
+    }
+
+    // Return to center at end
+    ctx.lineTo(width, height / 2)
+
+    // Bottom half (mirrored)
+    for (let i = waveformData.length - 1; i >= 0; i--) {
+      const x = i * step
+      const y = height / 2 + waveformData[i] * amplitudeScale
+      ctx.lineTo(x, y)
+    }
+
+    ctx.closePath()
+    ctx.fill()
+
+    // Draw outline
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = color
+    ctx.lineWidth = 2
+    ctx.beginPath()
 
     for (let i = 0; i < waveformData.length; i++) {
       const x = i * step
@@ -56,10 +89,9 @@ export function WaveformDisplay({
         ctx.lineTo(x, y)
       }
     }
-
     ctx.stroke()
 
-    // Draw mirrored waveform (below center line)
+    // Mirror outline
     ctx.beginPath()
     for (let i = 0; i < waveformData.length; i++) {
       const x = i * step
@@ -71,7 +103,6 @@ export function WaveformDisplay({
         ctx.lineTo(x, y)
       }
     }
-
     ctx.stroke()
   }, [waveformData, color, height])
 

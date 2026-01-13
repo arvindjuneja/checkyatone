@@ -72,8 +72,18 @@ export default function StudioPage() {
           console.log("Waveform generated, samples:", waveform.length)
           setOriginalWaveform(waveform)
 
-          // Create audio element for playback
-          const audio = new Audio(URL.createObjectURL(audioBlob))
+          // Create audio element for playback with preload
+          const audioURL = URL.createObjectURL(audioBlob)
+          const audio = new Audio(audioURL)
+          audio.preload = "auto"
+
+          // Force load to prevent lag
+          audio.load()
+
+          audio.addEventListener("canplaythrough", () => {
+            console.log("Audio ready to play")
+          })
+
           setOriginalAudioEl(audio)
         } else {
           console.error("No audio blob found for session:", selectedSessionId)
@@ -118,8 +128,18 @@ export default function StudioPage() {
       const waveform = await getWaveformData(processed)
       setProcessedWaveform(waveform)
 
-      // Create audio element for playback
-      const audio = new Audio(URL.createObjectURL(processed))
+      // Create audio element for playback with preload
+      const audioURL = URL.createObjectURL(processed)
+      const audio = new Audio(audioURL)
+      audio.preload = "auto"
+
+      // Force load to prevent lag
+      audio.load()
+
+      audio.addEventListener("canplaythrough", () => {
+        console.log("Processed audio ready to play")
+      })
+
       setProcessedAudioEl(audio)
 
       trackEvent("audio_processed", "Studio", selectedPreset)
@@ -143,31 +163,53 @@ export default function StudioPage() {
     trackEvent("audio_downloaded", "Studio")
   }
 
-  const togglePlayOriginal = () => {
+  const togglePlayOriginal = async () => {
     if (!originalAudioEl) return
 
     if (isPlayingOriginal) {
       originalAudioEl.pause()
       setIsPlayingOriginal(false)
     } else {
-      originalAudioEl.play()
-      setIsPlayingOriginal(true)
+      try {
+        // Ensure audio is loaded before playing
+        if (originalAudioEl.readyState < 3) {
+          console.log("Audio not ready, loading...")
+          await originalAudioEl.load()
+        }
 
-      originalAudioEl.onended = () => setIsPlayingOriginal(false)
+        await originalAudioEl.play()
+        setIsPlayingOriginal(true)
+
+        originalAudioEl.onended = () => setIsPlayingOriginal(false)
+      } catch (error) {
+        console.error("Failed to play audio:", error)
+        setIsPlayingOriginal(false)
+      }
     }
   }
 
-  const togglePlayProcessed = () => {
+  const togglePlayProcessed = async () => {
     if (!processedAudioEl) return
 
     if (isPlayingProcessed) {
       processedAudioEl.pause()
       setIsPlayingProcessed(false)
     } else {
-      processedAudioEl.play()
-      setIsPlayingProcessed(true)
+      try {
+        // Ensure audio is loaded before playing
+        if (processedAudioEl.readyState < 3) {
+          console.log("Processed audio not ready, loading...")
+          await processedAudioEl.load()
+        }
 
-      processedAudioEl.onended = () => setIsPlayingProcessed(false)
+        await processedAudioEl.play()
+        setIsPlayingProcessed(true)
+
+        processedAudioEl.onended = () => setIsPlayingProcessed(false)
+      } catch (error) {
+        console.error("Failed to play processed audio:", error)
+        setIsPlayingProcessed(false)
+      }
     }
   }
 
@@ -200,8 +242,16 @@ export default function StudioPage() {
         const waveform = await getWaveformData(blob)
         setOriginalWaveform(waveform)
 
-        // Create audio element for playback
-        const audio = new Audio(URL.createObjectURL(blob))
+        // Create audio element for playback with preload
+        const audioURL = URL.createObjectURL(blob)
+        const audio = new Audio(audioURL)
+        audio.preload = "auto"
+
+        // Wait for audio to be loaded
+        audio.addEventListener("canplaythrough", () => {
+          console.log("Audio ready to play")
+        })
+
         setOriginalAudioEl(audio)
 
         // Stop all tracks
@@ -368,7 +418,7 @@ export default function StudioPage() {
                   {originalWaveform && (
                     <WaveformDisplay
                       waveformData={originalWaveform}
-                      color="hsl(var(--muted-foreground))"
+                      color="#6b7280"
                       height={100}
                     />
                   )}
@@ -392,7 +442,7 @@ export default function StudioPage() {
                   {processedWaveform ? (
                     <WaveformDisplay
                       waveformData={processedWaveform}
-                      color="hsl(var(--pitch-perfect))"
+                      color="#3b82f6"
                       height={100}
                     />
                   ) : (
