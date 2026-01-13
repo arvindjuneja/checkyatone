@@ -496,46 +496,54 @@ function StudioContent() {
         </div>
       </div>
 
-      {/* Select Recording */}
+      {/* Select Recording - only show if there are sessions with audio */}
       {sessionsWithAudio.length > 0 && (
-        <>
-          <div className="bg-card rounded-xl p-4 border border-border">
-            <label className="text-sm font-semibold mb-2 block">
-              Lub wybierz poprzednie nagranie
-            </label>
-            <select
-              value={selectedSessionId || ""}
-              onChange={(e) => setSelectedSessionId(e.target.value || null)}
-              disabled={isRecording}
-              className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect disabled:opacity-50"
-            >
-              <option value="">Wybierz nagranie...</option>
-              {sessionsWithAudio.map((session) => (
-                <option key={session.id} value={session.id}>
-                  {session.name} - {new Date(session.date).toLocaleDateString("pl-PL")}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <label className="text-sm font-semibold mb-2 block">
+            Lub wybierz poprzednie nagranie
+          </label>
+          <select
+            value={selectedSessionId || ""}
+            onChange={(e) => setSelectedSessionId(e.target.value || null)}
+            disabled={isRecording}
+            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect disabled:opacity-50"
+          >
+            <option value="">Wybierz nagranie...</option>
+            {sessionsWithAudio.map((session) => (
+              <option key={session.id} value={session.id}>
+                {session.name} - {new Date(session.date).toLocaleDateString("pl-PL")}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
-          {isLoadingAudio && (
-            <div className="bg-card rounded-xl p-8 border border-border text-center">
-              <div className="animate-spin w-8 h-8 border-4 border-pitch-perfect border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-muted-foreground">Ładowanie audio...</p>
-            </div>
-          )}
+      {/* Loading state */}
+      {isLoadingAudio && (
+        <div className="bg-card rounded-xl p-8 border border-border text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-pitch-perfect border-t-transparent rounded-full mx-auto mb-3" />
+          <p className="text-muted-foreground">Ładowanie audio...</p>
+        </div>
+      )}
 
-          {audioError && (
-            <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-6 text-center">
-              <p className="text-destructive font-semibold mb-2">Błąd</p>
-              <p className="text-sm text-muted-foreground">{audioError}</p>
-              <p className="text-xs text-muted-foreground mt-4">
-                💡 Wskazówka: Ta sesja może być stara. Nagraj nową sesję na stronie "Na żywo" aby użyć Studio.
-              </p>
-            </div>
-          )}
+      {/* Error state */}
+      {audioError && (
+        <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-6 text-center">
+          <p className="text-destructive font-semibold mb-2">Błąd</p>
+          <p className="text-sm text-muted-foreground">{audioError}</p>
+          <p className="text-xs text-muted-foreground mt-4">
+            💡 Wskazówka: Ta sesja może być stara. Nagraj nową sesję na stronie "Na żywo" aby użyć Studio.
+          </p>
+        </div>
+      )}
 
-          {originalAudio && !isLoadingAudio && !audioError && (
+      {/* Debug Status */}
+      <div className="bg-secondary/20 rounded-lg p-2 text-xs font-mono">
+        Audio: {originalAudio ? '✓' : '✗'} | Loading: {isLoadingAudio ? '✓' : '✗'} | Error: {audioError ? 'YES' : 'NO'} | Waveform: {originalWaveform ? '✓' : '✗'}
+      </div>
+
+      {/* Main processing UI - show when audio is loaded */}
+      {originalAudio && !isLoadingAudio && !audioError && (
             <>
               {/* Waveforms */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -792,8 +800,6 @@ function StudioContent() {
               </div>
             </>
           )}
-        </>
-      )}
     </div>
   )
 }
