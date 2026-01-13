@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { type PitchData, detectPitch, frequencyToNote } from "@/lib/pitch-detector"
+import { trackEvent } from "@/lib/analytics"
 
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
@@ -150,10 +151,14 @@ export function useAudioRecorder() {
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.value = newGain
     }
+    // Track gain adjustment
+    trackEvent("gain_adjusted", "Settings", undefined, Math.round(newGain * 10))
   }, [])
 
   const updateSensitivity = useCallback((newSensitivity: number) => {
     setSensitivity(newSensitivity)
+    // Track sensitivity adjustment
+    trackEvent("sensitivity_adjusted", "Settings", undefined, Math.round(newSensitivity * 1000))
   }, [])
 
   useEffect(() => {

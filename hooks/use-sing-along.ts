@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { parseMidiFile, parseMidiBuffer, transposeMidi, type ParsedMidi, type MidiNote } from "@/lib/midi-parser"
 import { type PitchData } from "@/lib/pitch-detector"
+import { trackEvent } from "@/lib/analytics"
 
 export interface SingAlongState {
   phase: "loading" | "ready" | "countdown" | "playing" | "paused" | "finished" | "track-select"
@@ -89,6 +90,8 @@ export function useSingAlong() {
     try {
       const midi = await parseMidiFile(url)
       processMidiLoaded(midi)
+      // Track MIDI loaded
+      trackEvent("midi_loaded", "SingAlong", midi.name)
     } catch (error) {
       console.error("Failed to load MIDI:", error)
       setState((prev) => ({ ...prev, phase: "ready" }))
@@ -102,6 +105,8 @@ export function useSingAlong() {
     try {
       const midi = parseMidiBuffer(arrayBuffer, fileName)
       processMidiLoaded(midi)
+      // Track MIDI loaded
+      trackEvent("midi_loaded", "SingAlong", fileName)
     } catch (error) {
       console.error("Failed to parse MIDI:", error)
       setState((prev) => ({ ...prev, phase: "ready" }))
@@ -141,12 +146,15 @@ export function useSingAlong() {
 
   // Transpose the song
   const setTranspose = useCallback((semitones: number) => {
+    // Track transpose change
+    trackEvent("transpose_changed", "SingAlong", `${semitones > 0 ? '+' : ''}${semitones}`, semitones)
+
     setState((prev) => {
       if (!prev.originalMidi) return prev
-      
+
       // Transpose original MIDI
       const transposedOriginal = transposeMidi(prev.originalMidi, semitones)
-      
+
       // If a track is selected, filter to that track's notes
       let transposedMidi: ParsedMidi
       if (prev.selectedTrackIndex !== null) {
@@ -158,7 +166,7 @@ export function useSingAlong() {
       } else {
         transposedMidi = transposedOriginal
       }
-      
+
       return {
         ...prev,
         midi: transposedMidi,
@@ -273,6 +281,9 @@ export function useSingAlong() {
     setState((prev) => ({ ...prev, phase: "countdown" }))
     setCountdown(3)
 
+    // Track playback started
+    trackEvent("singalong_started", "SingAlong", state.midi.name)
+
     let count = 3
     const countdownInterval = setInterval(() => {
       count--
@@ -280,7 +291,7 @@ export function useSingAlong() {
 
       if (count <= 0) {
         clearInterval(countdownInterval)
-        
+
         lastFrameTimeRef.current = Date.now()
         setPitchHistory([])
         setIsSinging(false)
@@ -298,8 +309,10 @@ export function useSingAlong() {
   // Pause/resume
   const togglePause = useCallback(() => {
     if (state.phase === "playing") {
+      trackEvent("singalong_paused", "SingAlong")
       setState((prev) => ({ ...prev, phase: "paused" }))
     } else if (state.phase === "paused") {
+      trackEvent("singalong_resumed", "SingAlong")
       lastFrameTimeRef.current = Date.now()
       setState((prev) => ({ ...prev, phase: "playing" }))
     }

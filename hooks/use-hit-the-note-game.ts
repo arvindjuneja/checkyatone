@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react"
 import { AudioSynthesizer, type ToneNote } from "@/lib/audio-synth"
 import { type PitchData, noteToFrequency } from "@/lib/pitch-detector"
+import { trackEvent } from "@/lib/analytics"
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -115,13 +116,16 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     consecutiveCorrectRef.current = 0
     noteStartTimeRef.current = Date.now()
 
+    // Track game start
+    trackEvent("game_started", "Game", octaveRange)
+
     // Auto-play the first note
     setTimeout(() => {
       if (synthesizerRef.current) {
         synthesizerRef.current.playNote(firstNote.note, firstNote.octave, 800)
       }
     }, 100)
-  }, [generateRandomNote])
+  }, [generateRandomNote, octaveRange])
 
   const processPitch = useCallback((pitch: PitchData) => {
     if (phase !== "playing" || !currentNote) return
@@ -197,7 +201,10 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
       setScore(prev => prev + 10)
       setPhase("celebrating")
       setHitProgress(100)
-      
+
+      // Track successful note hit
+      trackEvent("note_hit", "Game", `${currentNote.note}${currentNote.octave}`, Math.round(timeToHit / 1000))
+
       // Play success fanfare! 🎉
       if (synthesizerRef.current) {
         synthesizerRef.current.playSuccessSound()
@@ -242,7 +249,12 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     const newLives = lives - 1
     setLives(newLives)
 
+    // Track note skip
+    trackEvent("note_skipped", "Game", `${currentNote.note}${currentNote.octave}`)
+
     if (newLives <= 0) {
+      // Track game over
+      trackEvent("game_over", "Game", undefined, score)
       setPhase("gameover")
     } else {
       // Generate next note

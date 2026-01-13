@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
-import { trackPageView } from "@/lib/analytics"
+import { trackPageView, trackEvent } from "@/lib/analytics"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
 import { CircleVisualizer } from "@/components/circle-visualizer"
 import { CurrentNoteDisplay } from "@/components/current-note-display"
@@ -67,7 +67,10 @@ export default function LivePage() {
           <div className="flex justify-center">
             <div className="inline-flex bg-secondary/50 rounded-xl p-1 gap-1">
               <button
-                onClick={() => setVisualizationMode("timeline")}
+                onClick={() => {
+                  setVisualizationMode("timeline")
+                  trackEvent("visualization_changed", "Settings", "timeline")
+                }}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                   visualizationMode === "timeline"
                     ? "bg-background text-foreground shadow-sm"
@@ -78,7 +81,10 @@ export default function LivePage() {
                 Timeline
               </button>
               <button
-                onClick={() => setVisualizationMode("circle")}
+                onClick={() => {
+                  setVisualizationMode("circle")
+                  trackEvent("visualization_changed", "Settings", "circle")
+                }}
                 className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                   visualizationMode === "circle"
                     ? "bg-background text-foreground shadow-sm"

@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext, useCallback, type ReactNode } from "react"
 import { useAudioRecorder } from "@/hooks/use-audio-recorder"
+import { trackEvent } from "@/lib/analytics"
 import type { PitchData } from "@/lib/pitch-detector"
 
 interface AudioRecorderContextType {
@@ -27,8 +28,38 @@ const AudioRecorderContext = createContext<AudioRecorderContextType | null>(null
 export function AudioRecorderProvider({ children }: { children: ReactNode }) {
   const audioRecorder = useAudioRecorder()
 
+  // Wrap recording functions with analytics tracking
+  const startRecording = useCallback(async () => {
+    await audioRecorder.startRecording()
+    trackEvent("recording_started", "Recording")
+  }, [audioRecorder])
+
+  const stopRecording = useCallback(() => {
+    const duration = Math.floor(audioRecorder.recordingDuration / 1000)
+    audioRecorder.stopRecording()
+    trackEvent("recording_stopped", "Recording", undefined, duration)
+  }, [audioRecorder])
+
+  const togglePause = useCallback(() => {
+    audioRecorder.togglePause()
+    trackEvent(audioRecorder.isPaused ? "recording_resumed" : "recording_paused", "Recording")
+  }, [audioRecorder])
+
+  const reset = useCallback(() => {
+    audioRecorder.reset()
+    trackEvent("recording_reset", "Recording")
+  }, [audioRecorder])
+
+  const value = {
+    ...audioRecorder,
+    startRecording,
+    stopRecording,
+    togglePause,
+    reset,
+  }
+
   return (
-    <AudioRecorderContext.Provider value={audioRecorder}>
+    <AudioRecorderContext.Provider value={value}>
       {children}
     </AudioRecorderContext.Provider>
   )

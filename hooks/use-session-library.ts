@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { type PitchData } from "@/lib/pitch-detector"
+import { trackEvent } from "@/lib/analytics"
 
 export interface SessionMetadata {
   id: string
@@ -86,6 +87,9 @@ export function useSessionLibrary() {
         const metadata = trimmedSessions.map(({ pitchHistory: _, ...meta }) => meta)
         setSessions(metadata)
 
+        // Track session saved
+        trackEvent("session_saved", "Session", mode, duration)
+
         return session.id
       } catch (error) {
         console.error("Failed to save session:", error)
@@ -105,6 +109,9 @@ export function useSessionLibrary() {
       const session = sessions.find((s) => s.id === sessionId)
 
       if (session) {
+        // Track session opened
+        trackEvent("session_opened", "Session", session.mode)
+
         return {
           ...session,
           date: new Date(session.date),
@@ -128,6 +135,9 @@ export function useSessionLibrary() {
 
       localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(filtered))
 
+      // Track session deleted
+      trackEvent("session_deleted", "Session")
+
       // Update state
       const metadata = filtered.map(({ pitchHistory: _, ...meta }) => meta)
       setSessions(metadata)
@@ -148,6 +158,9 @@ export function useSessionLibrary() {
       if (sessionIndex !== -1) {
         sessions[sessionIndex].name = newName
         localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
+
+        // Track session renamed
+        trackEvent("session_renamed", "Session")
 
         // Update state
         const metadata = sessions.map(({ pitchHistory: _, ...meta }) => meta)
