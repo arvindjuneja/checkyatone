@@ -28,11 +28,16 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
   const [duration, setDuration] = useState(0)
   const [masterVolume, setMasterVolume] = useState(project.masterVolume)
   const [isRecording, setIsRecording] = useState(false)
+  const [recordingWaveform, setRecordingWaveform] = useState<number[]>([])
 
   const engineRef = useRef<MultiTrackEngine | null>(null)
-  const animationFrameRef = useRef<number>()
+  const animationFrameRef = useRef<number | undefined>(undefined)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const recordingAnimationRef = useRef<number | undefined>(undefined)
 
   // Initialize engine
   useEffect(() => {
@@ -181,6 +186,28 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
     }
   }
 
+  // Visualize recording waveform
+  const visualizeRecording = () => {
+    if (!analyserRef.current || !isRecording) return
+
+    const bufferLength = analyserRef.current.fftSize
+    const dataArray = new Float32Array(bufferLength)
+    analyserRef.current.getFloatTimeDomainData(dataArray)
+
+    // Calculate RMS for this frame
+    let sum = 0
+    for (let i = 0; i < bufferLength; i++) {
+      sum += dataArray[i] * dataArray[i]
+    }
+    const rms = Math.sqrt(sum / bufferLength)
+    const normalizedValue = Math.min(1, rms * 10) // Normalize to 0-1
+
+    // Add to waveform (keep last 100 samples for visualization)
+    setRecordingWaveform(prev => [...prev.slice(-99), normalizedValue])
+
+    recordingAnimationRef.current = requestAnimationFrame(visualizeRecording)
+  }
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -190,6 +217,17 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
           autoGainControl: true,
         },
       })
+
+      // Setup audio analysis for waveform visualization
+      audioContextRef.current = new AudioContext()
+      const source = audioContextRef.current.createMediaStreamSource(stream)
+      analyserRef.current = audioContextRef.current.createAnalyser()
+      analyserRef.current.fftSize = 2048
+      source.connect(analyserRef.current)
+
+      // Start visualization
+      setRecordingWaveform([])
+      visualizeRecording()
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
       audioChunksRef.current = []
@@ -203,6 +241,12 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
       mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
 
+        // Stop visualization
+        if (recordingAnimationRef.current) {
+          cancelAnimationFrame(recordingAnimationRef.current)
+        }
+        setRecordingWaveform([])
+
         // Add as new track
         try {
           await addTrackToProject(project.id, `Track ${tracks.length + 1}`, blob)
@@ -212,8 +256,13 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
           console.error("Failed to add recorded track:", error)
         }
 
-        // Stop all tracks
+        // Stop all tracks and cleanup
         stream.getTracks().forEach(track => track.stop())
+        if (audioContextRef.current) {
+          audioContextRef.current.close()
+          audioContextRef.current = null
+        }
+        analyserRef.current = null
         setIsRecording(false)
       }
 
@@ -228,6 +277,25 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop()
+    }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !file.type.startsWith("audio/")) return
+
+    try {
+      const blob = new Blob([await file.arrayBuffer()], { type: file.type })
+      await addTrackToProject(project.id, file.name, blob)
+      await loadTracks()
+      onProjectUpdate()
+    } catch (error) {
+      console.error("Failed to upload track:", error)
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
@@ -305,28 +373,74 @@ export function MultiTrackManager({ project, onProjectUpdate }: MultiTrackManage
         </div>
       </div>
 
+      {/* Recording Waveform Visualization */}
+      {isRecording && recordingWaveform.length > 0 && (
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-red-500 flex items-center gap-2">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              Recording...
+            </h3>
+          </div>
+          <div className="h-20 bg-secondary/20 rounded-lg flex items-center justify-center gap-px px-2 overflow-hidden">
+            {recordingWaveform.map((value, i) => (
+              <div
+                key={i}
+                className="flex-1 bg-pitch-perfect rounded-full transition-all min-w-[2px]"
+                style={{ height: `${Math.max(2, value * 100)}%` }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Track List */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Tracks ({tracks.length})</h3>
-          <Button
-            onClick={isRecording ? stopRecording : startRecording}
-            variant={isRecording ? "destructive" : "default"}
-            size="sm"
-            className="gap-2"
-          >
-            {isRecording ? <Square className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-            {isRecording ? "Stop Recording" : "Add Track"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={isRecording ? stopRecording : startRecording}
+              variant={isRecording ? "destructive" : "default"}
+              size="sm"
+              className="gap-2"
+            >
+              {isRecording ? <Square className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+              {isRecording ? "Stop" : "Record"}
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isRecording}
+            >
+              <Plus className="w-3 h-3" />
+              Upload
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </div>
         </div>
 
         {tracks.length === 0 ? (
           <div className="bg-secondary/20 rounded-lg p-8 text-center">
             <p className="text-muted-foreground mb-4">No tracks yet</p>
-            <Button onClick={startRecording} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Record First Track
-            </Button>
+            <div className="flex items-center justify-center gap-3">
+              <Button onClick={startRecording} className="gap-2">
+                <Mic className="w-4 h-4" />
+                Record Track
+              </Button>
+              <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Upload Track
+              </Button>
+            </div>
           </div>
         ) : (
           tracks.map(track => (

@@ -1,6 +1,6 @@
 // Multi-track audio playback and mixing engine using Web Audio API
 
-import type { Track } from "./multi-track-storage"
+import type { Track, AudioClip, AudioSource } from "./multi-track-storage"
 
 export class MultiTrackEngine {
   private audioContext: AudioContext | null = null
@@ -362,5 +362,140 @@ export class MultiTrackEngine {
     }
 
     return new Blob([buffer], { type: "audio/wav" })
+  }
+
+  // Clip-based playback methods
+
+  // Load an audio source into memory
+  async loadAudioSource(source: AudioSource): Promise<void> {
+    if (!this.audioContext) throw new Error("AudioContext not initialized")
+
+    try {
+      const arrayBuffer = await source.audioBlob.arrayBuffer()
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
+      this.trackBuffers.set(source.id, audioBuffer)
+
+      console.log(`[MultiTrack] Loaded source: ${source.name} (${audioBuffer.duration.toFixed(2)}s)`)
+    } catch (error) {
+      console.error(`[MultiTrack] Failed to load source ${source.name}:`, error)
+      throw error
+    }
+  }
+
+  // Play clips on tracks
+  async playClips(
+    tracks: Track[],
+    clips: Map<string, AudioClip[]>, // Map of trackId -> clips
+    sources: Map<string, AudioSource>, // Map of sourceId -> source
+    currentTime: number = 0
+  ): Promise<void> {
+    if (!this.audioContext || !this.masterGain) {
+      console.error("[MultiTrack] AudioContext not initialized")
+      return
+    }
+
+    // Stop any currently playing
+    this.stop()
+
+    // Load any sources that aren't loaded yet
+    for (const source of sources.values()) {
+      if (!this.trackBuffers.has(source.id)) {
+        await this.loadAudioSource(source)
+      }
+    }
+
+    // Create gain nodes for each track if they don't exist
+    for (const track of tracks) {
+      if (!this.trackGains.has(track.id)) {
+        const gainNode = this.audioContext.createGain()
+        gainNode.gain.value = track.mute ? 0 : track.volume
+        gainNode.connect(this.masterGain)
+        this.trackGains.set(track.id, gainNode)
+
+        const pannerNode = this.audioContext.createStereoPanner()
+        pannerNode.pan.value = track.pan
+        pannerNode.connect(gainNode)
+        this.trackPanners.set(track.id, pannerNode)
+      }
+    }
+
+    // Determine if any track has solo enabled
+    const hasSolo = tracks.some(track => track.solo)
+
+    const now = this.audioContext.currentTime
+    const offset = this.isPaused ? this.pausedAt : currentTime
+
+    // Play each clip
+    let clipsPlaying = 0
+    for (const track of tracks) {
+      const trackClips = clips.get(track.id) || []
+      const pannerNode = this.trackPanners.get(track.id)
+      const gainNode = this.trackGains.get(track.id)
+
+      if (!pannerNode || !gainNode) continue
+
+      // Determine if this track should be audible
+      const isAudible = !track.mute && (!hasSolo || track.solo)
+      gainNode.gain.value = isAudible ? track.volume : 0
+
+      for (const clip of trackClips) {
+        const source = sources.get(clip.audioSourceId)
+        if (!source) continue
+
+        const buffer = this.trackBuffers.get(source.id)
+        if (!buffer) continue
+
+        // Calculate when this clip should start playing
+        const clipStartInTimeline = clip.startTime
+        const clipEndInTimeline = clip.startTime + (clip.duration - clip.trimStart - clip.trimEnd)
+
+        // Skip clips that have already finished
+        if (offset > clipEndInTimeline) continue
+
+        // Calculate delay and offset for this clip
+        let when = now
+        let sourceOffset = clip.trimStart
+
+        if (offset < clipStartInTimeline) {
+          // Clip hasn't started yet - schedule it for the future
+          when = now + (clipStartInTimeline - offset)
+        } else {
+          // We're in the middle of this clip
+          sourceOffset += (offset - clipStartInTimeline)
+        }
+
+        // Create source node
+        const sourceNode = this.audioContext.createBufferSource()
+        sourceNode.buffer = buffer
+        sourceNode.connect(pannerNode)
+
+        // Calculate duration to play
+        const duration = (clip.duration - clip.trimStart - clip.trimEnd) - Math.max(0, offset - clipStartInTimeline)
+
+        // Start playback
+        sourceNode.start(when, sourceOffset, duration)
+        this.trackSources.set(`${clip.id}`, sourceNode)
+        clipsPlaying++
+
+        // Handle clip ending
+        sourceNode.onended = () => {
+          this.trackSources.delete(`${clip.id}`)
+          // If all clips ended, stop playback
+          if (this.trackSources.size === 0 && this.isPlaying) {
+            this.stop()
+          }
+        }
+      }
+    }
+
+    if (clipsPlaying > 0) {
+      this.isPlaying = true
+      this.isPaused = false
+      this.startTime = now - offset
+
+      console.log(`[MultiTrack] Playing ${clipsPlaying} clips from ${offset.toFixed(2)}s`)
+    } else {
+      console.log("[MultiTrack] No clips to play")
+    }
   }
 }

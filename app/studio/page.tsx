@@ -14,6 +14,7 @@ import {
 import { WaveformDisplay } from "@/components/waveform-display"
 import { InteractiveWaveform } from "@/components/interactive-waveform"
 import { MultiTrackManager } from "@/components/multi-track-manager"
+import { MultiTrackTimeline } from "@/components/timeline/multi-track-timeline"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
 import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3, ChevronDown, ChevronUp, Layers } from "lucide-react"
@@ -537,7 +538,7 @@ function StudioContent() {
 
       {/* Multi-Track Mode */}
       {isMultiTrackMode && currentProject ? (
-        <MultiTrackManager
+        <MultiTrackTimeline
           project={currentProject}
           onProjectUpdate={loadProjects}
         />
