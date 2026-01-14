@@ -12,9 +12,10 @@ import {
   type AudioProcessingSettings
 } from "@/lib/audio-processor"
 import { WaveformDisplay } from "@/components/waveform-display"
+import { InteractiveWaveform } from "@/components/interactive-waveform"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3 } from "lucide-react"
 
 function StudioContent() {
   const searchParams = useSearchParams()
@@ -35,6 +36,9 @@ function StudioContent() {
 
   const [originalAudioEl, setOriginalAudioEl] = useState<HTMLAudioElement | null>(null)
   const [processedAudioEl, setProcessedAudioEl] = useState<HTMLAudioElement | null>(null)
+
+  // Editing mode
+  const [editingMode, setEditingMode] = useState(false)
 
   // Studio recording
   const [isRecording, setIsRecording] = useState(false)
@@ -260,6 +264,29 @@ function StudioContent() {
   ) => {
     setSettings(prev => ({ ...prev, [key]: value }))
     setSelectedPreset("custom") // Switch to custom when manually adjusting
+  }
+
+  const handleAudioEdited = async (editedBlob: Blob) => {
+    console.log("[Studio] Audio edited, updating original audio...")
+    setOriginalAudio(editedBlob)
+
+    // Regenerate waveform
+    const waveform = await getWaveformData(editedBlob)
+    setOriginalWaveform(waveform)
+
+    // Update audio element
+    const audioURL = URL.createObjectURL(editedBlob)
+    const audio = new Audio(audioURL)
+    audio.preload = "auto"
+    audio.load()
+    setOriginalAudioEl(audio)
+
+    // Clear processed audio since the source changed
+    setProcessedAudio(null)
+    setProcessedWaveform(null)
+    setProcessedAudioEl(null)
+
+    trackEvent("audio_edited", "Studio")
   }
 
   const startStudioRecording = async () => {
@@ -546,58 +573,87 @@ function StudioContent() {
       {originalAudio && !isLoadingAudio && !audioError && (
             <>
               {/* Waveforms */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-card rounded-xl p-4 border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">Original</h3>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={togglePlayOriginal}
-                      className="gap-2"
-                    >
-                      {isPlayingOriginal ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                      {isPlayingOriginal ? "Pause" : "Play"}
-                    </Button>
-                  </div>
-                  {originalWaveform && (
-                    <WaveformDisplay
-                      waveformData={originalWaveform}
-                      color="#6b7280"
-                      height={100}
-                    />
-                  )}
+              <div className="space-y-4">
+                {/* Edit Mode Toggle */}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Audio Editor</h3>
+                  <Button
+                    onClick={() => setEditingMode(!editingMode)}
+                    variant={editingMode ? "default" : "outline"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    {editingMode ? "Editing Mode" : "Enable Editing"}
+                  </Button>
                 </div>
 
-                <div className="bg-card rounded-xl p-4 border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">Processed</h3>
-                    {processedAudio && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={togglePlayProcessed}
-                        className="gap-2"
-                      >
-                        {isPlayingProcessed ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                        {isPlayingProcessed ? "Pause" : "Play"}
-                      </Button>
-                    )}
-                  </div>
-                  {processedWaveform ? (
-                    <WaveformDisplay
-                      waveformData={processedWaveform}
+                {/* Interactive Waveform (Editing Mode) */}
+                {editingMode ? (
+                  <div className="bg-card rounded-xl p-4 border border-border">
+                    <InteractiveWaveform
+                      audioBlob={originalAudio}
+                      onAudioEdited={handleAudioEdited}
                       color="#3b82f6"
-                      height={100}
+                      height={150}
                     />
-                  ) : (
-                    <div className="h-[100px] flex items-center justify-center bg-secondary/20 rounded-lg">
-                      <p className="text-xs text-muted-foreground">
-                        Select a preset or adjust settings, then click Process
-                      </p>
+                  </div>
+                ) : (
+                  /* Simple Waveform View */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-card rounded-xl p-4 border border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm">Original</h3>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={togglePlayOriginal}
+                          className="gap-2"
+                        >
+                          {isPlayingOriginal ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                          {isPlayingOriginal ? "Pause" : "Play"}
+                        </Button>
+                      </div>
+                      {originalWaveform && (
+                        <WaveformDisplay
+                          waveformData={originalWaveform}
+                          color="#6b7280"
+                          height={100}
+                        />
+                      )}
                     </div>
-                  )}
-                </div>
+
+                    <div className="bg-card rounded-xl p-4 border border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm">Processed</h3>
+                        {processedAudio && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={togglePlayProcessed}
+                            className="gap-2"
+                          >
+                            {isPlayingProcessed ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                            {isPlayingProcessed ? "Pause" : "Play"}
+                          </Button>
+                        )}
+                      </div>
+                      {processedWaveform ? (
+                        <WaveformDisplay
+                          waveformData={processedWaveform}
+                          color="#3b82f6"
+                          height={100}
+                        />
+                      ) : (
+                        <div className="h-[100px] flex items-center justify-center bg-secondary/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">
+                            Select a preset or adjust settings, then click Process
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Presets */}
