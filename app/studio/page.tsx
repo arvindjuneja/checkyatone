@@ -15,7 +15,7 @@ import { WaveformDisplay } from "@/components/waveform-display"
 import { InteractiveWaveform } from "@/components/interactive-waveform"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3 } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3, ChevronDown, ChevronUp } from "lucide-react"
 
 function StudioContent() {
   const searchParams = useSearchParams()
@@ -40,6 +40,10 @@ function StudioContent() {
   // Editing mode
   const [editingMode, setEditingMode] = useState(false)
 
+  // UI collapse states
+  const [showLoadControls, setShowLoadControls] = useState(true)
+  const [showSessionSelector, setShowSessionSelector] = useState(true)
+
   // Studio recording
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
@@ -49,6 +53,14 @@ function StudioContent() {
 
   // File upload
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Auto-collapse sections when audio is loaded
+  useEffect(() => {
+    if (originalAudio && !isLoadingAudio && !audioError) {
+      setShowLoadControls(false)
+      setShowSessionSelector(false)
+    }
+  }, [originalAudio, isLoadingAudio, audioError])
 
   useEffect(() => {
     document.title = "Vocal Coach - Studio"
@@ -457,91 +469,115 @@ function StudioContent() {
         </p>
       </div>
 
-      {/* Recording Controls */}
-      <div className="bg-card rounded-xl p-6 border border-border">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold">Wczytaj Audio</h3>
-            <p className="text-xs text-muted-foreground">
-              Nagraj, wgraj plik, lub wybierz istniejącą sesję poniżej
-            </p>
+      {/* Recording Controls - Collapsible */}
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div
+          className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => setShowLoadControls(!showLoadControls)}
+        >
+          <div className="flex items-center gap-3">
+            <h3 className="font-semibold text-sm">Load Audio</h3>
+            {originalAudio && !isRecording && (
+              <span className="text-xs text-pitch-perfect bg-pitch-perfect/10 px-2 py-1 rounded">
+                ✓ Ready
+              </span>
+            )}
+            {isRecording && (
+              <span className="text-xs font-mono font-bold text-pitch-perfect">
+                {formatTime(recordingDuration)}
+              </span>
+            )}
           </div>
-          {isRecording && (
-            <div className="text-3xl font-mono font-bold text-pitch-perfect">
-              {formatTime(recordingDuration)}
+          <Button variant="ghost" size="sm" className="gap-1">
+            {showLoadControls ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </Button>
+        </div>
+
+        {showLoadControls && (
+          <div className="p-4 pt-0 border-t border-border/50">
+            <div className="flex items-center gap-2 flex-wrap">
+              {!isRecording ? (
+                <>
+                  <Button
+                    onClick={startStudioRecording}
+                    disabled={isLoadingAudio}
+                    className="gap-2"
+                    size="sm"
+                  >
+                    <Mic className="w-3 h-3" />
+                    Record
+                  </Button>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoadingAudio}
+                    variant="outline"
+                    className="gap-2"
+                    size="sm"
+                  >
+                    <Upload className="w-3 h-3" />
+                    Upload File
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </>
+              ) : (
+                <Button
+                  onClick={stopStudioRecording}
+                  variant="destructive"
+                  className="gap-2"
+                  size="sm"
+                >
+                  <Square className="w-3 h-3" />
+                  Stop Recording
+                </Button>
+              )}
             </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap">
-          {!isRecording ? (
-            <>
-              <Button
-                onClick={startStudioRecording}
-                disabled={isLoadingAudio}
-                className="gap-2"
-                size="lg"
-              >
-                <Mic className="w-4 h-4" />
-                Nagraj
-              </Button>
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoadingAudio}
-                variant="outline"
-                className="gap-2"
-                size="lg"
-              >
-                <Upload className="w-4 h-4" />
-                Wgraj plik
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </>
-          ) : (
-            <Button
-              onClick={stopStudioRecording}
-              variant="destructive"
-              className="gap-2"
-              size="lg"
-            >
-              <Square className="w-4 h-4" />
-              Zatrzymaj nagrywanie
-            </Button>
-          )}
-
-          {originalAudio && !selectedSessionId && (
-            <span className="text-sm text-muted-foreground">
-              ✓ Audio gotowe do przetworzenia
-            </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Select Recording - only show if there are sessions with audio */}
+      {/* Select Recording - Collapsible - only show if there are sessions with audio */}
       {sessionsWithAudio.length > 0 && (
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <label className="text-sm font-semibold mb-2 block">
-            Lub wybierz poprzednie nagranie
-          </label>
-          <select
-            value={selectedSessionId || ""}
-            onChange={(e) => setSelectedSessionId(e.target.value || null)}
-            disabled={isRecording}
-            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect disabled:opacity-50"
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div
+            className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => setShowSessionSelector(!showSessionSelector)}
           >
-            <option value="">Wybierz nagranie...</option>
-            {sessionsWithAudio.map((session) => (
-              <option key={session.id} value={session.id}>
-                {session.name} - {new Date(session.date).toLocaleDateString("pl-PL")}
-              </option>
-            ))}
-          </select>
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-sm">Previous Recordings</h3>
+              {selectedSessionId && (
+                <span className="text-xs text-pitch-perfect bg-pitch-perfect/10 px-2 py-1 rounded">
+                  ✓ Selected
+                </span>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1">
+              {showSessionSelector ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          {showSessionSelector && (
+            <div className="p-4 pt-0 border-t border-border/50">
+              <select
+                value={selectedSessionId || ""}
+                onChange={(e) => setSelectedSessionId(e.target.value || null)}
+                disabled={isRecording}
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pitch-perfect disabled:opacity-50"
+              >
+                <option value="">Select recording...</option>
+                {sessionsWithAudio.map((session) => (
+                  <option key={session.id} value={session.id}>
+                    {session.name} - {new Date(session.date).toLocaleDateString("pl-PL")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 

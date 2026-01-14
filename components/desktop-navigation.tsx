@@ -10,7 +10,7 @@ import { SessionLibrary } from "./session-library"
 import { useHotkeys } from "@/hooks/use-hotkeys"
 import { useSessionLibrary } from "@/hooks/use-session-library"
 import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
-import { Music2, AlertCircle, Maximize2, Minimize2, HelpCircle } from "lucide-react"
+import { Music2, AlertCircle, Maximize2, Minimize2, HelpCircle, PanelLeftClose, PanelRightClose, PanelLeft, PanelRight } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -44,6 +44,8 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
   const [focusMode, setFocusMode] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
+  const [showLeftPanel, setShowLeftPanel] = useState(true)
+  const [showRightPanel, setShowRightPanel] = useState(true)
 
   const { saveSession } = useSessionLibrary()
   const recordingStartTimeRef = useRef<number | null>(null)
@@ -79,8 +81,18 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
   }, [rightPanelSize])
 
   const toggleFocusMode = useCallback(() => {
-    setFocusMode((prev) => !prev)
-  }, [])
+    const newFocusMode = !focusMode
+    setFocusMode(newFocusMode)
+    // When entering focus mode, hide both panels
+    if (newFocusMode) {
+      setShowLeftPanel(false)
+      setShowRightPanel(false)
+    } else {
+      // When exiting, show both panels
+      setShowLeftPanel(true)
+      setShowRightPanel(true)
+    }
+  }, [focusMode])
 
   // Auto-save session when recording stops
   useEffect(() => {
@@ -241,6 +253,23 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
 
         {/* Quick Actions */}
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setShowLeftPanel(!showLeftPanel)}
+            title="Toggle left sidebar"
+          >
+            {showLeftPanel ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setShowRightPanel(!showRightPanel)}
+            title="Toggle right sidebar"
+          >
+            {showRightPanel ? <PanelRightClose className="w-4 h-4" /> : <PanelRight className="w-4 h-4" />}
+          </Button>
+          <div className="w-px h-4 bg-border" />
           <Button variant="ghost" size="icon-sm" onClick={toggleFocusMode} title="Focus mode (F)">
             {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </Button>
@@ -339,7 +368,7 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
       <div className="flex-1 overflow-hidden">
         <PanelGroup direction="horizontal" className="h-full">
           {/* Left Navigation Panel */}
-          {!focusMode && (
+          {showLeftPanel && (
             <>
               <Panel
                 defaultSize={leftPanelSize}
@@ -366,7 +395,7 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
           </Panel>
 
           {/* Right Inspector Panel */}
-          {!focusMode && (
+          {showRightPanel && (
             <>
               <PanelResizeHandle className="w-1 bg-border hover:bg-primary/50 transition-colors" />
               <Panel
