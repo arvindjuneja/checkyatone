@@ -137,19 +137,34 @@ export function InteractiveWaveform({
     return () => {
       isMountedRef.current = false
 
-      // Safely destroy wavesurfer
-      try {
-        if (wavesurfer) {
-          wavesurfer.destroy()
+      // Safely destroy wavesurfer - handle async destruction
+      if (wavesurfer) {
+        // Unsubscribe from all events first
+        try {
+          wavesurfer.unAll()
+        } catch (e) {
+          // Ignore
         }
-      } catch (error) {
-        // Ignore abort errors during cleanup
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Error destroying wavesurfer:', error)
+
+        // Destroy and catch any promise rejections
+        try {
+          const destroyResult = wavesurfer.destroy()
+          // If destroy returns a promise, catch rejections
+          if (destroyResult && typeof destroyResult.catch === 'function') {
+            destroyResult.catch(() => {
+              // Silently ignore promise rejections (AbortError, etc.)
+            })
+          }
+        } catch (error) {
+          // Silently ignore synchronous errors
         }
       }
 
-      URL.revokeObjectURL(url)
+      try {
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        // Ignore URL revocation errors
+      }
     }
   }, [audioBlob, color, height])
 
