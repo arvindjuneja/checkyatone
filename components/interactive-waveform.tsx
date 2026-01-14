@@ -146,18 +146,14 @@ export function InteractiveWaveform({
           // Ignore
         }
 
-        // Destroy and catch any promise rejections
-        try {
-          const destroyResult = wavesurfer.destroy()
-          // If destroy returns a promise, catch rejections
-          if (destroyResult && typeof destroyResult.catch === 'function') {
-            destroyResult.catch(() => {
-              // Silently ignore promise rejections (AbortError, etc.)
-            })
+        // Use async cleanup to properly catch promise rejections
+        ;(async () => {
+          try {
+            await wavesurfer.destroy()
+          } catch (error) {
+            // Silently ignore all errors including AbortError
           }
-        } catch (error) {
-          // Silently ignore synchronous errors
-        }
+        })()
       }
 
       try {
