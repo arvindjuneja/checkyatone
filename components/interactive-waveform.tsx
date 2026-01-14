@@ -29,6 +29,7 @@ export function InteractiveWaveform({
   const containerRef = useRef<HTMLDivElement>(null)
   const wavesurferRef = useRef<WaveSurfer | null>(null)
   const regionsPluginRef = useRef<RegionsPlugin | null>(null)
+  const isMountedRef = useRef(true)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [isReady, setIsReady] = useState(false)
@@ -45,6 +46,8 @@ export function InteractiveWaveform({
   // Initialize WaveSurfer
   useEffect(() => {
     if (!containerRef.current) return
+
+    isMountedRef.current = true
 
     // Create regions plugin
     const regionsPlugin = RegionsPlugin.create()
@@ -87,32 +90,43 @@ export function InteractiveWaveform({
 
     // Event handlers
     wavesurfer.on("ready", () => {
-      setIsReady(true)
-      setDuration(wavesurfer.getDuration())
+      if (isMountedRef.current) {
+        setIsReady(true)
+        setDuration(wavesurfer.getDuration())
+      }
     })
 
-    wavesurfer.on("play", () => setIsPlaying(true))
-    wavesurfer.on("pause", () => setIsPlaying(false))
+    wavesurfer.on("play", () => {
+      if (isMountedRef.current) setIsPlaying(true)
+    })
+
+    wavesurfer.on("pause", () => {
+      if (isMountedRef.current) setIsPlaying(false)
+    })
 
     wavesurfer.on("timeupdate", (time) => {
-      setCurrentTime(time)
+      if (isMountedRef.current) setCurrentTime(time)
     })
 
     wavesurfer.on("finish", () => {
-      setIsPlaying(false)
+      if (isMountedRef.current) setIsPlaying(false)
     })
 
     // Region selection handlers
     regionsPlugin.on("region-clicked", (region, e) => {
       e.stopPropagation()
-      setSelectedRegion(region)
-      // Highlight selected region
-      region.setOptions({ color: "rgba(239, 68, 68, 0.3)" })
+      if (isMountedRef.current) {
+        setSelectedRegion(region)
+        // Highlight selected region
+        region.setOptions({ color: "rgba(239, 68, 68, 0.3)" })
+      }
     })
 
     regionsPlugin.on("region-created", (region) => {
       // Auto-select newly created regions
-      setSelectedRegion(region)
+      if (isMountedRef.current) {
+        setSelectedRegion(region)
+      }
     })
 
     regionsPlugin.enableDragSelection({
@@ -121,7 +135,20 @@ export function InteractiveWaveform({
 
     // Cleanup
     return () => {
-      wavesurfer.destroy()
+      isMountedRef.current = false
+
+      // Safely destroy wavesurfer
+      try {
+        if (wavesurfer) {
+          wavesurfer.destroy()
+        }
+      } catch (error) {
+        // Ignore abort errors during cleanup
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('Error destroying wavesurfer:', error)
+        }
+      }
+
       URL.revokeObjectURL(url)
     }
   }, [audioBlob, color, height])
