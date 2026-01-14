@@ -13,9 +13,11 @@ import {
 } from "@/lib/audio-processor"
 import { WaveformDisplay } from "@/components/waveform-display"
 import { InteractiveWaveform } from "@/components/interactive-waveform"
+import { MultiTrackManager } from "@/components/multi-track-manager"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3, ChevronDown, ChevronUp } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Save, Upload, Edit3, ChevronDown, ChevronUp, Layers } from "lucide-react"
+import { createProject, type MultiTrackProject, multiTrackStorage } from "@/lib/multi-track-storage"
 
 function StudioContent() {
   const searchParams = useSearchParams()
@@ -43,6 +45,11 @@ function StudioContent() {
   // UI collapse states
   const [showLoadControls, setShowLoadControls] = useState(true)
   const [showSessionSelector, setShowSessionSelector] = useState(true)
+
+  // Multi-track mode
+  const [isMultiTrackMode, setIsMultiTrackMode] = useState(false)
+  const [currentProject, setCurrentProject] = useState<MultiTrackProject | null>(null)
+  const [projects, setProjects] = useState<MultiTrackProject[]>([])
 
   // Studio recording
   const [isRecording, setIsRecording] = useState(false)
@@ -101,7 +108,36 @@ function StudioContent() {
           })
       }
     }
+
+    // Load multi-track projects
+    loadProjects()
   }, [searchParams])
+
+  // Load multi-track projects
+  const loadProjects = async () => {
+    try {
+      const allProjects = await multiTrackStorage.getAllProjects()
+      setProjects(allProjects.sort((a, b) => b.updatedAt - a.updatedAt))
+    } catch (error) {
+      console.error("[Studio] Failed to load projects:", error)
+    }
+  }
+
+  // Create new multi-track project
+  const handleCreateProject = async () => {
+    try {
+      const projectId = await createProject(`Project ${projects.length + 1}`)
+      await loadProjects()
+      const newProject = await multiTrackStorage.getProject(projectId)
+      if (newProject) {
+        setCurrentProject(newProject)
+        setIsMultiTrackMode(true)
+      }
+      trackEvent("multitrack_project_created", "Studio")
+    } catch (error) {
+      console.error("[Studio] Failed to create project:", error)
+    }
+  }
 
   // Load audio when session is selected
   useEffect(() => {
@@ -459,15 +495,80 @@ function StudioContent() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-pitch-perfect" />
-          Recording Studio
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Enhance your recordings with professional audio processing
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-pitch-perfect" />
+            Recording Studio
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isMultiTrackMode ? "Multi-track recording and mixing" : "Enhance your recordings with professional audio processing"}
+          </p>
+        </div>
+
+        {/* Mode Toggle */}
+        <div className="flex items-center gap-2 bg-secondary rounded-lg p-1">
+          <Button
+            variant={!isMultiTrackMode ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setIsMultiTrackMode(false)}
+            className="gap-2"
+          >
+            <Edit3 className="w-3 h-3" />
+            Single Track
+          </Button>
+          <Button
+            variant={isMultiTrackMode ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              if (!currentProject) {
+                handleCreateProject()
+              } else {
+                setIsMultiTrackMode(true)
+              }
+            }}
+            className="gap-2"
+          >
+            <Layers className="w-3 h-3" />
+            Multi-Track
+          </Button>
+        </div>
       </div>
+
+      {/* Multi-Track Mode */}
+      {isMultiTrackMode && currentProject ? (
+        <MultiTrackManager
+          project={currentProject}
+          onProjectUpdate={loadProjects}
+        />
+      ) : isMultiTrackMode ? (
+        <div className="bg-card rounded-xl p-8 border border-border text-center space-y-4">
+          <p className="text-muted-foreground">No project selected</p>
+          <Button onClick={handleCreateProject} className="gap-2">
+            <Layers className="w-4 h-4" />
+            Create New Project
+          </Button>
+          {projects.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold mb-3">Or load existing:</h3>
+              <div className="space-y-2">
+                {projects.map(project => (
+                  <Button
+                    key={project.id}
+                    variant="outline"
+                    onClick={() => setCurrentProject(project)}
+                    className="w-full justify-start"
+                  >
+                    {project.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {/* Single Track Mode - Existing UI */}
 
       {/* Recording Controls - Collapsible */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -892,6 +993,8 @@ function StudioContent() {
               </div>
             </>
           )}
+        </>
+      )}
     </div>
   )
 }
