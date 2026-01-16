@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useTrainingMode } from "@/hooks/use-training-mode"
-import { TRAINING_EXERCISES, getDifficultyLabel, getDifficultyColor, type DifficultyLevel } from "@/lib/audio-synth"
+import { TRAINING_EXERCISES, getDifficultyLabel, getDifficultyColor, type DifficultyLevel, type ToneNote } from "@/lib/audio-synth"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Play, Mic, RotateCcw, Home, Volume2, Filter } from "lucide-react"
+import { Play, Mic, RotateCcw, Home, Volume2, Filter, Square, Volume1 } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
 
 interface TrainingModeProps {
@@ -27,10 +27,13 @@ export function TrainingMode({
     phase,
     selectedExercise,
     isPlayingReference,
+    isPlayingSingleNote,
     accuracyResults,
     recordedPitches,
     selectExercise,
     playReference,
+    playSingleNote,
+    stopPlaying,
     startRecording,
     addPitch,
     stopRecording,
@@ -168,28 +171,49 @@ export function TrainingMode({
             <p className="text-sm text-muted-foreground">{selectedExercise?.description}</p>
           </div>
           {isPlayingReference ? (
-            <p className="text-primary font-semibold">Słuchaj wzorca...</p>
+            <div className="space-y-2">
+              <p className="text-primary font-semibold">Słuchaj wzorca...</p>
+              <Button onClick={stopPlaying} size="lg" variant="secondary" className="gap-2">
+                <Square className="w-5 h-5" />
+                Stop
+              </Button>
+            </div>
           ) : (
-            <div className="flex gap-2 justify-center">
-              <Button onClick={playReference} size="lg" className="gap-2">
+            <div className="flex flex-col gap-3 items-center">
+              <Button
+                onClick={() => {
+                  startRecording()
+                  onStartRecording()
+                }}
+                size="lg"
+                className="gap-2 bg-pitch-perfect text-background hover:opacity-90"
+              >
+                <Mic className="w-5 h-5" />
+                Zacznij śpiewać
+              </Button>
+              <Button onClick={playReference} size="lg" variant="secondary" className="gap-2">
                 <Play className="w-5 h-5" />
-                Odtwórz ponownie
+                Posłuchaj jeszcze raz
               </Button>
             </div>
           )}
         </div>
 
-        {/* Show expected notes */}
+        {/* Show expected notes - clickable to play individually */}
         <div className="bg-card rounded-xl p-4 border border-border">
-          <h3 className="font-semibold mb-3 text-sm">Nuty do zaśpiewania:</h3>
+          <h3 className="font-semibold mb-2 text-sm">Nuty do zaśpiewania:</h3>
+          <p className="text-xs text-muted-foreground mb-3">Kliknij nutę, aby usłyszeć jej dźwięk</p>
           <div className="flex flex-wrap gap-2">
             {selectedExercise?.notes.map((note, idx) => (
-              <div
+              <button
                 key={idx}
-                className="px-3 py-2 bg-secondary rounded-lg text-sm font-mono font-semibold"
+                onClick={() => playSingleNote(note)}
+                disabled={isPlayingReference || isPlayingSingleNote}
+                className="px-3 py-2 bg-secondary hover:bg-secondary/80 active:bg-pitch-perfect/20 rounded-lg text-sm font-mono font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
+                <Volume1 className="w-3 h-3 opacity-50" />
                 {note.note}{note.octave}
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -211,36 +235,50 @@ export function TrainingMode({
               Naciśnij przycisk i zaśpiewaj tę samą sekwencję nut
             </p>
           </div>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={playReference} size="lg" variant="secondary" className="gap-2">
-              <Play className="w-5 h-5" />
-              Posłuchaj jeszcze raz
-            </Button>
-            <Button
-              onClick={() => {
-                startRecording()
-                onStartRecording()
-              }}
-              size="lg"
-              className="gap-2 bg-pitch-perfect text-background hover:opacity-90"
-            >
-              <Mic className="w-5 h-5" />
-              Zacznij śpiewać
-            </Button>
-          </div>
+          {isPlayingReference ? (
+            <div className="space-y-2">
+              <p className="text-primary font-semibold">Słuchaj wzorca...</p>
+              <Button onClick={stopPlaying} size="lg" variant="secondary" className="gap-2">
+                <Square className="w-5 h-5" />
+                Stop
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2 justify-center">
+              <Button onClick={playReference} size="lg" variant="secondary" className="gap-2">
+                <Play className="w-5 h-5" />
+                Posłuchaj jeszcze raz
+              </Button>
+              <Button
+                onClick={() => {
+                  startRecording()
+                  onStartRecording()
+                }}
+                size="lg"
+                className="gap-2 bg-pitch-perfect text-background hover:opacity-90"
+              >
+                <Mic className="w-5 h-5" />
+                Zacznij śpiewać
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* Show expected notes */}
+        {/* Show expected notes - clickable to play individually */}
         <div className="bg-card rounded-xl p-4 border border-border">
-          <h3 className="font-semibold mb-3 text-sm">Nuty do zaśpiewania:</h3>
+          <h3 className="font-semibold mb-2 text-sm">Nuty do zaśpiewania:</h3>
+          <p className="text-xs text-muted-foreground mb-3">Kliknij nutę, aby usłyszeć jej dźwięk</p>
           <div className="flex flex-wrap gap-2">
             {selectedExercise?.notes.map((note, idx) => (
-              <div
+              <button
                 key={idx}
-                className="px-3 py-2 bg-secondary rounded-lg text-sm font-mono font-semibold"
+                onClick={() => playSingleNote(note)}
+                disabled={isPlayingReference || isPlayingSingleNote}
+                className="px-3 py-2 bg-secondary hover:bg-secondary/80 active:bg-pitch-perfect/20 rounded-lg text-sm font-mono font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
+                <Volume1 className="w-3 h-3 opacity-50" />
                 {note.note}{note.octave}
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -250,6 +288,8 @@ export function TrainingMode({
 
   // Recording Phase
   if (phase === "recording") {
+    const firstNote = selectedExercise?.notes[0]
+
     return (
       <div className="space-y-4">
         <div className="bg-card rounded-xl p-6 border border-border text-center space-y-4">
@@ -285,17 +325,45 @@ export function TrainingMode({
           </Button>
         </div>
 
-        {/* Show expected notes */}
+        {/* First note reminder - prominently displayed */}
+        {firstNote && (
+          <div className="bg-pitch-perfect/10 rounded-xl p-4 border border-pitch-perfect/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm text-pitch-perfect">Pierwsza nuta (przypomnienie)</h3>
+                <p className="text-xs text-muted-foreground">Kliknij, aby usłyszeć ton startowy</p>
+              </div>
+              <button
+                onClick={() => playSingleNote(firstNote)}
+                disabled={isPlayingSingleNote}
+                className="px-4 py-3 bg-pitch-perfect/20 hover:bg-pitch-perfect/30 active:bg-pitch-perfect/40 rounded-lg text-2xl font-mono font-bold transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                <Volume2 className="w-5 h-5" />
+                {firstNote.note}{firstNote.octave}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Show all expected notes - clickable to play */}
         <div className="bg-card rounded-xl p-4 border border-border">
-          <h3 className="font-semibold mb-3 text-sm">Nuty do zaśpiewania:</h3>
+          <h3 className="font-semibold mb-2 text-sm">Wszystkie nuty:</h3>
+          <p className="text-xs text-muted-foreground mb-3">Kliknij nutę, aby usłyszeć jej dźwięk</p>
           <div className="flex flex-wrap gap-2">
             {selectedExercise?.notes.map((note, idx) => (
-              <div
+              <button
                 key={idx}
-                className="px-3 py-2 bg-secondary rounded-lg text-sm font-mono font-semibold"
+                onClick={() => playSingleNote(note)}
+                disabled={isPlayingSingleNote}
+                className={`px-3 py-2 rounded-lg text-sm font-mono font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 ${
+                  idx === 0
+                    ? "bg-pitch-perfect/20 hover:bg-pitch-perfect/30 border border-pitch-perfect/50"
+                    : "bg-secondary hover:bg-secondary/80"
+                }`}
               >
+                <Volume1 className="w-3 h-3 opacity-50" />
                 {note.note}{note.octave}
-              </div>
+              </button>
             ))}
           </div>
         </div>

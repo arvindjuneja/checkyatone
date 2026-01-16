@@ -1,186 +1,240 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
-import { trackPageView, trackEvent } from "@/lib/analytics"
-import { PitchVisualizer } from "@/components/pitch-visualizer"
-import { CircleVisualizer } from "@/components/circle-visualizer"
-import { CurrentNoteDisplay } from "@/components/current-note-display"
-import { RecordingControls } from "@/components/recording-controls"
-import { AudioSettings } from "@/components/audio-settings"
-import { SaveSessionDialog } from "@/components/save-session-dialog"
-import { LayoutList, Circle } from "lucide-react"
-import { type PitchData } from "@/lib/pitch-detector"
+import { useEffect, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { trackPageView } from "@/lib/analytics"
+import { useSessionLibrary } from "@/hooks/use-session-library"
+import { Button } from "@/components/ui/button"
+import { Radio, BookOpen, Music, ChevronRight, TrendingUp, Calendar, Target, Play, BarChart3 } from "lucide-react"
 
-export default function LivePage() {
-  const {
-    isRecording,
-    isPaused,
-    currentPitch,
-    pitchHistory,
-    recordingDuration,
-    startRecording,
-    stopRecording,
-    togglePause,
-    reset,
-    hasRecording,
-    gain,
-    sensitivity,
-    updateGain,
-    updateSensitivity,
-  } = useAudioRecorderContext()
+export default function DashboardPage() {
+  const router = useRouter()
+  const { sessions } = useSessionLibrary()
 
-  const [visualizationMode, setVisualizationMode] = useState<"timeline" | "circle">("timeline")
-  const [isDesktop, setIsDesktop] = useState(false)
-  const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [recordedPitchHistory, setRecordedPitchHistory] = useState<PitchData[]>([])
-  const [recordedDuration, setRecordedDuration] = useState(0)
-
-  // Detect screen size
   useEffect(() => {
-    const checkScreenSize = () => {
-      setIsDesktop(window.innerWidth >= 1024)
-    }
-
-    checkScreenSize()
-    window.addEventListener("resize", checkScreenSize)
-
-    return () => window.removeEventListener("resize", checkScreenSize)
+    document.title = "Vocal Coach"
+    trackPageView("Vocal Coach - Dashboard", "/")
   }, [])
 
-  // Track page view
-  useEffect(() => {
-    document.title = "Vocal Coach - Na żywo"
-    trackPageView("Vocal Coach - Na żywo", "/")
-  }, [])
+  // Get today's sessions
+  const todaySessions = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-  // Wrap stop recording to show save dialog
-  const handleStopRecording = useCallback(() => {
-    // Save current pitch history and duration before stopping
-    setRecordedPitchHistory([...pitchHistory])
-    setRecordedDuration(Math.floor(recordingDuration / 1000))
-    stopRecording()
+    return sessions.filter(session => {
+      const sessionDate = new Date(session.date)
+      sessionDate.setHours(0, 0, 0, 0)
+      return sessionDate.getTime() === today.getTime()
+    })
+  }, [sessions])
 
-    // Show save dialog if there's data to save
-    if (pitchHistory.length > 0) {
-      setShowSaveDialog(true)
+  // Get recent sessions (last 5)
+  const recentSessions = useMemo(() => {
+    return [...sessions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5)
+  }, [sessions])
+
+  // Calculate today's stats
+  const todayStats = useMemo(() => {
+    const sessionCount = todaySessions.length
+    const totalDuration = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0)
+    const avgAccuracy = todaySessions.length > 0
+      ? Math.round(todaySessions.reduce((acc, s) => acc + (s.averageAccuracy || 0), 0) / todaySessions.length)
+      : 0
+
+    return { sessionCount, totalDuration, avgAccuracy }
+  }, [todaySessions])
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    return `${mins}min`
+  }
+
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString("pl-PL", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit"
+    })
+  }
+
+  const getModeLabel = (mode: string) => {
+    switch (mode) {
+      case "live": return "Na zywo"
+      case "training": return "Trening"
+      case "analysis": return "Analiza"
+      default: return mode
     }
-  }, [pitchHistory, recordingDuration, stopRecording])
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Mobile Layout */}
-      {!isDesktop && (
-        <>
-          {/* Audio Settings */}
-          <AudioSettings
-            gain={gain}
-            sensitivity={sensitivity}
-            onGainChange={updateGain}
-            onSensitivityChange={updateSensitivity}
-            disabled={isRecording}
-          />
-
-          {/* Visualization Mode Toggle */}
-          <div className="flex justify-center">
-            <div className="inline-flex bg-secondary/50 rounded-xl p-1 gap-1">
-              <button
-                onClick={() => {
-                  setVisualizationMode("timeline")
-                  trackEvent("visualization_changed", "Settings", "timeline")
-                }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                  visualizationMode === "timeline"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <LayoutList className="w-4 h-4" />
-                Timeline
-              </button>
-              <button
-                onClick={() => {
-                  setVisualizationMode("circle")
-                  trackEvent("visualization_changed", "Settings", "circle")
-                }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                  visualizationMode === "circle"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Circle className="w-4 h-4" />
-                Koło
-              </button>
+    <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Quick Start */}
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+          Szybki start
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            onClick={() => router.push("/record/live")}
+            className="group bg-pitch-perfect/10 hover:bg-pitch-perfect/20 transition-colors rounded-xl p-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-pitch-perfect/20 flex items-center justify-center group-hover:bg-pitch-perfect/30 transition-colors">
+                <Radio className="w-5 h-5 text-pitch-perfect" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Nagrywaj</h3>
+                <p className="text-xs text-muted-foreground">Na zywo</p>
+              </div>
             </div>
-          </div>
+          </button>
 
-          {/* Live Pitch Visualizer */}
-          <div className="bg-card rounded-xl p-3 border border-border">
-            {visualizationMode === "timeline" ? (
-              <PitchVisualizer pitchHistory={pitchHistory} currentPitch={currentPitch} isRecording={isRecording} />
-            ) : (
-              <CircleVisualizer pitchHistory={pitchHistory} currentPitch={currentPitch} isRecording={isRecording} />
-            )}
-          </div>
-
-          {/* Current Note Display - only show for timeline mode */}
-          {visualizationMode === "timeline" && (
-            <CurrentNoteDisplay currentPitch={currentPitch} pitchHistory={pitchHistory} />
-          )}
-
-          {/* Recording Controls */}
-          <div className="bg-card rounded-xl p-6 border border-border">
-            <RecordingControls
-              isRecording={isRecording}
-              isPaused={isPaused}
-              hasRecording={hasRecording}
-              onStartRecording={startRecording}
-              onStopRecording={handleStopRecording}
-              onTogglePause={togglePause}
-              onReset={reset}
-              recordingDuration={recordingDuration}
-            />
-          </div>
-        </>
-      )}
-
-      {/* Save Session Dialog */}
-      <SaveSessionDialog
-        open={showSaveDialog}
-        onOpenChange={setShowSaveDialog}
-        pitchHistory={recordedPitchHistory}
-        duration={recordedDuration}
-        mode="live"
-      />
-
-      {/* Desktop Layout */}
-      {isDesktop && (
-        <div className="space-y-6 max-w-5xl mx-auto">
-          {/* Timeline Visualizer */}
-          <div className="bg-card rounded-xl p-6 border border-border">
-            <div className="mb-3 text-sm font-semibold text-muted-foreground">Timeline</div>
-            <div className="h-[320px]">
-              <PitchVisualizer
-                pitchHistory={pitchHistory}
-                currentPitch={currentPitch}
-                isRecording={isRecording}
-              />
+          <button
+            onClick={() => router.push("/train/exercises")}
+            className="group bg-blue-500/10 hover:bg-blue-500/20 transition-colors rounded-xl p-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                <BookOpen className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Cwicz</h3>
+                <p className="text-xs text-muted-foreground">Cwiczenia</p>
+              </div>
             </div>
-          </div>
-          {/* Circle Visualizer */}
-          <div className="bg-card rounded-xl p-6 border border-border">
-            <div className="mb-3 text-sm font-semibold text-muted-foreground">Koło</div>
-            <div className="flex justify-center">
-              <CircleVisualizer
-                pitchHistory={pitchHistory}
-                currentPitch={currentPitch}
-                isRecording={isRecording}
-              />
+          </button>
+
+          <button
+            onClick={() => router.push("/record/karaoke")}
+            className="group bg-violet-500/10 hover:bg-violet-500/20 transition-colors rounded-xl p-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center group-hover:bg-violet-500/30 transition-colors">
+                <Music className="w-5 h-5 text-violet-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Karaoke</h3>
+                <p className="text-xs text-muted-foreground">Z YouTube</p>
+              </div>
             </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Today's Progress */}
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
+          Dzisiejsze postepy
+        </h2>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold">{todayStats.sessionCount}</p>
+            <p className="text-xs text-muted-foreground">Sesji</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+              <Target className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold text-pitch-perfect">
+              {todayStats.avgAccuracy > 0 ? `${todayStats.avgAccuracy}%` : "-"}
+            </p>
+            <p className="text-xs text-muted-foreground">Dokladnosc</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+            <p className="text-2xl font-bold">
+              {todayStats.totalDuration > 0 ? formatDuration(todayStats.totalDuration) : "-"}
+            </p>
+            <p className="text-xs text-muted-foreground">Czas</p>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Recent Sessions */}
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Ostatnie sesje
+          </h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/library")}
+            className="gap-1 text-xs"
+          >
+            Zobacz wszystkie
+            <ChevronRight className="w-3 h-3" />
+          </Button>
+        </div>
+
+        {recentSessions.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">Brak sesji</p>
+            <Button onClick={() => router.push("/record/live")} className="gap-2">
+              <Radio className="w-4 h-4" />
+              Nagraj pierwsza sesje
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentSessions.map((session) => (
+              <div
+                key={session.id}
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer"
+                onClick={() => router.push(`/library/session?id=${session.id}`)}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium truncate">{session.name}</h3>
+                    {session.averageAccuracy !== undefined && session.averageAccuracy > 0 && (
+                      <span className="text-xs text-pitch-perfect bg-pitch-perfect/10 px-2 py-0.5 rounded">
+                        {session.averageAccuracy}%
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getModeLabel(session.mode)} • {formatDate(session.date)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {session.hasAudio && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/edit/studio?session=${session.id}`)
+                      }}
+                      className="gap-1"
+                    >
+                      <Play className="w-3 h-3" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/library/session?id=${session.id}`)
+                    }}
+                    className="gap-1"
+                  >
+                    <BarChart3 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

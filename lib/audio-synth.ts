@@ -11,6 +11,8 @@ export interface ToneNote {
 export class AudioSynthesizer {
   private audioContext: AudioContext | null = null
   private masterGain: GainNode | null = null
+  private activeOscillators: OscillatorNode[] = []
+  private isPlaying: boolean = false
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -19,6 +21,24 @@ export class AudioSynthesizer {
       this.masterGain.gain.value = 0.85 // Master volume
       this.masterGain.connect(this.audioContext.destination)
     }
+  }
+
+  getIsPlaying(): boolean {
+    return this.isPlaying
+  }
+
+  stopAllSounds(): void {
+    this.isPlaying = false
+    // Stop all active oscillators immediately
+    this.activeOscillators.forEach(osc => {
+      try {
+        osc.stop()
+        osc.disconnect()
+      } catch {
+        // Oscillator may already be stopped
+      }
+    })
+    this.activeOscillators = []
   }
 
   // Piano-like tone with harmonics for rich, audible sound
@@ -75,10 +95,17 @@ export class AudioSynthesizer {
     mixerGain.connect(envelopeGain)
     envelopeGain.connect(this.masterGain)
 
+    // Track oscillators for potential stopping
+    this.activeOscillators.push(...oscillators)
+
     // Start and stop all oscillators
     oscillators.forEach(osc => {
       osc.start(startTime)
       osc.stop(endTime + 0.1)
+      // Clean up from activeOscillators when done
+      osc.onended = () => {
+        this.activeOscillators = this.activeOscillators.filter(o => o !== osc)
+      }
     })
 
     return new Promise((resolve) => {
@@ -91,18 +118,28 @@ export class AudioSynthesizer {
     return this.playPianoTone(frequency, duration, delay)
   }
 
-  async playNoteSequence(notes: ToneNote[], gap: number = 200): Promise<void> {
-    let currentDelay = 0
+  async playNoteSequence(notes: ToneNote[], gap: number = 200): Promise<boolean> {
+    this.isPlaying = true
 
     console.log('[AudioSynth] Playing note sequence:')
     for (const noteData of notes) {
+      // Check if stopped early
+      if (!this.isPlaying) {
+        console.log('[AudioSynth] Sequence stopped early')
+        return false
+      }
+
       const frequency = noteToFrequency(noteData.note, noteData.octave)
       console.log(`  ${noteData.note}${noteData.octave} → ${frequency.toFixed(2)} Hz`)
       if (frequency > 0) {
-        await this.playPianoTone(frequency, noteData.duration, currentDelay / 1000)
-        currentDelay += noteData.duration + gap
+        await this.playPianoTone(frequency, noteData.duration)
+        // Wait for gap between notes
+        await new Promise(resolve => setTimeout(resolve, gap))
       }
     }
+
+    this.isPlaying = false
+    return true
   }
 
   async playNote(note: string, octave: number, duration: number = 500): Promise<void> {

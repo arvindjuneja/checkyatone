@@ -2,40 +2,20 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
-import { trackPageView } from "@/lib/analytics"
-import { TrainingMode } from "@/components/training-mode"
-import { ArrowLeft } from "lucide-react"
 
-export default function ExercisesPage() {
+export default function ExercisesRedirect() {
   const router = useRouter()
-  const {
-    currentPitch,
-    isRecording,
-    startRecording,
-    stopRecording,
-  } = useAudioRecorderContext()
 
   useEffect(() => {
-    document.title = "Vocal Coach - Ćwiczenia"
-    trackPageView("Vocal Coach - Ćwiczenia", "/training/exercises")
-  }, [])
+    router.replace("/train/exercises")
+  }, [router])
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      <button
-        onClick={() => router.push("/training")}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to menu
-      </button>
-      <TrainingMode
-        currentPitch={currentPitch}
-        isRecordingActive={isRecording}
-        onStartRecording={startRecording}
-        onStopRecording={stopRecording}
-      />
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-pitch-perfect border-t-transparent rounded-full mx-auto mb-3" />
+        <p className="text-muted-foreground">Przekierowywanie...</p>
+      </div>
     </div>
   )
 }

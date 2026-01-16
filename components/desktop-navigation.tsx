@@ -13,7 +13,7 @@ import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
 import { Music2, AlertCircle, Maximize2, Minimize2, HelpCircle, PanelLeftClose, PanelRightClose, PanelLeft, PanelRight } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 
 interface DesktopNavigationProps {
   pathname: string
@@ -45,7 +45,16 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
   const [showHelp, setShowHelp] = useState(false)
   const [showLibrary, setShowLibrary] = useState(false)
   const [showLeftPanel, setShowLeftPanel] = useState(true)
-  const [showRightPanel, setShowRightPanel] = useState(true)
+
+  // Routes that need the right panel (recording controls, audio settings)
+  const routesNeedingRightPanel = ["/record/live", "/record/karaoke", "/edit/studio"]
+  const routeNeedsRightPanel = routesNeedingRightPanel.some(route => pathname.startsWith(route))
+  const [showRightPanel, setShowRightPanel] = useState(routeNeedsRightPanel)
+
+  // Auto-show right panel on routes that need it, auto-hide on others
+  useEffect(() => {
+    setShowRightPanel(routeNeedsRightPanel)
+  }, [pathname, routeNeedsRightPanel])
 
   const { saveSession } = useSessionLibrary()
   const recordingStartTimeRef = useRef<number | null>(null)
@@ -431,6 +440,7 @@ export function DesktopNavigation({ pathname, children }: DesktopNavigationProps
       {/* Session Library Dialog */}
       <Dialog open={showLibrary} onOpenChange={setShowLibrary}>
         <DialogContent className="max-w-4xl h-[80vh] p-0">
+          <DialogTitle className="sr-only">Biblioteka sesji</DialogTitle>
           <SessionLibrary onClose={() => setShowLibrary(false)} />
         </DialogContent>
       </Dialog>

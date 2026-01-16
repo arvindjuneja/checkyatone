@@ -115,18 +115,22 @@ export function useAudioRecorder() {
   const stopRecording = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
     }
 
     if (sourceRef.current) {
       sourceRef.current.disconnect()
+      sourceRef.current = null
     }
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
     }
 
-    if (audioContextRef.current) {
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
       audioContextRef.current.close()
+      audioContextRef.current = null
     }
 
     setPitchHistory(historyRef.current)
@@ -169,7 +173,7 @@ export function useAudioRecorder() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop())
       }
-      if (audioContextRef.current) {
+      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close()
       }
     }

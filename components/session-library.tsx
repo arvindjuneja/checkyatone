@@ -145,7 +145,7 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
             <div>
               <h3 className="text-lg font-bold">{selectedSession.name}</h3>
               <p className="text-sm text-muted-foreground">
-                {selectedSession.date.toLocaleDateString("pl-PL")} • {selectedSession.duration}s • {selectedSession.noteCount} nut
+                {new Date(selectedSession.date).toLocaleDateString("pl-PL")} • {selectedSession.duration}s • {selectedSession.noteCount} nut
                 {selectedSession.averageAccuracy && ` • Trafność: ${selectedSession.averageAccuracy}%`}
               </p>
             </div>
@@ -182,7 +182,7 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
                 <div>
                   <h3 className="text-lg font-bold">{compareSession.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {compareSession.date.toLocaleDateString("pl-PL")} • {compareSession.duration}s • {compareSession.noteCount} nut
+                    {new Date(compareSession.date).toLocaleDateString("pl-PL")} • {compareSession.duration}s • {compareSession.noteCount} nut
                     {compareSession.averageAccuracy && ` • Trafność: ${compareSession.averageAccuracy}%`}
                   </p>
                 </div>
@@ -262,7 +262,7 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
                     <div>
                       <div className="text-sm font-medium">{session.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {session.date.toLocaleDateString("pl-PL")} • {session.averageAccuracy}%
+                        {new Date(session.date).toLocaleDateString("pl-PL")} • {session.averageAccuracy}%
                       </div>
                     </div>
                     <Download className="w-4 h-4 text-muted-foreground" />
@@ -339,7 +339,7 @@ export function SessionLibrary({ onClose }: SessionLibraryProps) {
                     <h3 className="font-semibold truncate mb-1">{session.name}</h3>
                   )}
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span>{session.date.toLocaleDateString("pl-PL")}</span>
+                    <span>{new Date(session.date).toLocaleDateString("pl-PL")}</span>
                     <span>•</span>
                     <span>{Math.floor(session.duration / 60)}:{String(session.duration % 60).padStart(2, "0")}</span>
                     <span>•</span>

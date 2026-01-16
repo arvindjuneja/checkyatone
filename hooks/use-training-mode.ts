@@ -20,11 +20,13 @@ export function useTrainingMode() {
   const [selectedExercise, setSelectedExercise] = useState<TrainingExercise | null>(null)
   const [currentNoteIndex, setCurrentNoteIndex] = useState(0)
   const [isPlayingReference, setIsPlayingReference] = useState(false)
+  const [isPlayingSingleNote, setIsPlayingSingleNote] = useState(false)
   const [accuracyResults, setAccuracyResults] = useState<NoteAccuracy[]>([])
   const [recordedPitches, setRecordedPitches] = useState<PitchData[]>([])
 
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
   const recordingStartTimeRef = useRef<number>(0)
+  const recordedPitchesRef = useRef<PitchData[]>([])
 
   useEffect(() => {
     // Initialize synthesizer
@@ -53,8 +55,10 @@ export function useTrainingMode() {
 
     setIsPlayingReference(true)
     try {
-      await synthesizerRef.current.playNoteSequence(selectedExercise.notes, 300)
-      setPhase("ready")
+      const completed = await synthesizerRef.current.playNoteSequence(selectedExercise.notes, 300)
+      if (completed) {
+        setPhase("ready")
+      }
     } catch (error) {
       console.error("Error playing reference:", error)
     } finally {
@@ -62,25 +66,47 @@ export function useTrainingMode() {
     }
   }, [selectedExercise])
 
+  const playSingleNote = useCallback(async (note: ToneNote) => {
+    if (!synthesizerRef.current) return
+
+    setIsPlayingSingleNote(true)
+    try {
+      await synthesizerRef.current.playNote(note.note, note.octave, note.duration)
+    } catch (error) {
+      console.error("Error playing single note:", error)
+    } finally {
+      setIsPlayingSingleNote(false)
+    }
+  }, [])
+
+  const stopPlaying = useCallback(() => {
+    if (!synthesizerRef.current) return
+    synthesizerRef.current.stopAllSounds()
+    setIsPlayingReference(false)
+    setIsPlayingSingleNote(false)
+  }, [])
+
   const startRecording = useCallback(() => {
     setPhase("recording")
     setRecordedPitches([])
+    recordedPitchesRef.current = []
     recordingStartTimeRef.current = Date.now()
   }, [])
 
   const addPitch = useCallback((pitch: PitchData) => {
     if (phase !== "recording") return
-    setRecordedPitches((prev) => [...prev, pitch])
+    recordedPitchesRef.current = [...recordedPitchesRef.current, pitch]
+    setRecordedPitches(recordedPitchesRef.current)
   }, [phase])
 
   const stopRecording = useCallback(() => {
     if (!selectedExercise) return
 
-    // Analyze the recorded pitches
-    const results = analyzeAccuracy(selectedExercise.notes, recordedPitches)
+    // Analyze the recorded pitches using the ref to avoid stale closure
+    const results = analyzeAccuracy(selectedExercise.notes, recordedPitchesRef.current)
     setAccuracyResults(results)
     setPhase("results")
-  }, [selectedExercise, recordedPitches])
+  }, [selectedExercise])
 
   const reset = useCallback(() => {
     setPhase("selecting")
@@ -88,6 +114,7 @@ export function useTrainingMode() {
     setCurrentNoteIndex(0)
     setAccuracyResults([])
     setRecordedPitches([])
+    recordedPitchesRef.current = []
   }, [])
 
   const retry = useCallback(() => {
@@ -95,6 +122,7 @@ export function useTrainingMode() {
     setCurrentNoteIndex(0)
     setAccuracyResults([])
     setRecordedPitches([])
+    recordedPitchesRef.current = []
   }, [])
 
   return {
@@ -102,10 +130,13 @@ export function useTrainingMode() {
     selectedExercise,
     currentNoteIndex,
     isPlayingReference,
+    isPlayingSingleNote,
     accuracyResults,
     recordedPitches,
     selectExercise,
     playReference,
+    playSingleNote,
+    stopPlaying,
     startRecording,
     addPitch,
     stopRecording,

@@ -2,7 +2,19 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Music2, Mic, BookOpen, Gamepad2, Music, BarChart3, Library, TrendingUp, Sparkles, Mic2 } from "lucide-react"
+import {
+  Home,
+  Mic,
+  Radio,
+  Music,
+  BookOpen,
+  Gamepad2,
+  Sparkles,
+  Layers,
+  Library,
+  TrendingUp,
+  Settings
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface DesktopNavProps {
@@ -27,7 +39,10 @@ export function DesktopNav({
     return pathname.startsWith(path)
   }
 
-  const isTrainingActive = pathname.startsWith("/training")
+  const isRecordActive = pathname.startsWith("/record")
+  const isTrainActive = pathname.startsWith("/train")
+  const isEditActive = pathname.startsWith("/edit")
+  const isLibraryActive = pathname.startsWith("/library")
 
   return (
     <div className="h-full flex flex-col p-4 space-y-6 overflow-y-auto">
@@ -41,7 +56,7 @@ export function DesktopNav({
           size="sm"
         >
           <Mic className="w-4 h-4" />
-          {isRecording ? "Stop (R)" : "Start (R)"}
+          {isRecording ? "Stop (R)" : "Nagrywaj (R)"}
         </Button>
         <Button
           onClick={onOpenLibrary}
@@ -50,13 +65,12 @@ export function DesktopNav({
           size="sm"
         >
           <Library className="w-4 h-4" />
-          Biblioteka sesji
+          Biblioteka
         </Button>
       </div>
 
-      {/* Navigation */}
+      {/* Dashboard */}
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Nawigacja</h3>
         <Link
           href="/"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -65,128 +79,155 @@ export function DesktopNav({
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
-          <Music2 className="w-4 h-4" />
-          <span>Na żywo</span>
+          <Home className="w-4 h-4" />
+          <span>Start</span>
+        </Link>
+      </div>
+
+      {/* Nagrywaj (Record) */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Nagrywaj</h3>
+        <Link
+          href="/record/live"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname === "/record/live"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Radio className="w-4 h-4" />
+          <span>Na zywo</span>
           <span className="ml-auto text-xs opacity-50">1</span>
         </Link>
         <Link
-          href="/training"
+          href="/record/karaoke"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isTrainingActive
+            pathname === "/record/karaoke"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Music className="w-4 h-4" />
+          <span>Karaoke</span>
+          <span className="ml-auto text-xs opacity-50">2</span>
+        </Link>
+      </div>
+
+      {/* Trenuj (Train) */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Trenuj</h3>
+        <Link
+          href="/train/exercises"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname === "/train/exercises"
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          <span>Trenuj</span>
-          <span className="ml-auto text-xs opacity-50">2</span>
-        </Link>
-        <Link
-          href="/progress"
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive("/progress")
-              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Postępy</span>
+          <span>Cwiczenia</span>
           <span className="ml-auto text-xs opacity-50">3</span>
         </Link>
         <Link
-          href="/analysis"
+          href="/train/game"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive("/analysis")
+            pathname === "/train/game"
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
-          <BarChart3 className="w-4 h-4" />
-          <span>Analiza</span>
+          <Gamepad2 className="w-4 h-4" />
+          <span>Hit the Note!</span>
           <span className="ml-auto text-xs opacity-50">4</span>
         </Link>
         <Link
-          href="/studio"
+          href="/train/singalong"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive("/studio")
+            pathname === "/train/singalong"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Music className="w-4 h-4" />
+          <span>Spiewaj z piosenka</span>
+          <span className="ml-auto text-xs opacity-50">5</span>
+        </Link>
+      </div>
+
+      {/* Edytuj (Edit) */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Edytuj</h3>
+        <Link
+          href="/edit/studio"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname.startsWith("/edit/studio")
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
           <Sparkles className="w-4 h-4" />
           <span>Studio</span>
-          <span className="ml-auto text-xs opacity-50">5</span>
-        </Link>
-        <Link
-          href="/karaoke"
-          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive("/karaoke")
-              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          }`}
-        >
-          <Mic2 className="w-4 h-4" />
-          <span>Karaoke</span>
           <span className="ml-auto text-xs opacity-50">6</span>
         </Link>
         <Link
-          href="/about"
+          href="/edit/projects"
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-            isActive("/about")
+            pathname === "/edit/projects"
               ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
         >
-          <Music className="w-4 h-4" />
-          <span>Po co?</span>
+          <Layers className="w-4 h-4" />
+          <span>Multi-track</span>
           <span className="ml-auto text-xs opacity-50">7</span>
         </Link>
       </div>
 
-      {/* Training Modes (when on Training tab) */}
-      {isTrainingActive && (
-        <div className="space-y-2 pt-4 border-t border-border">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Tryb treningowy</h3>
-          <Link
-            href="/training/exercises"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              pathname === "/training/exercises"
-                ? "bg-pitch-good/20 text-pitch-good font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Ćwiczenia</span>
-          </Link>
-          <Link
-            href="/training/game"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              pathname === "/training/game"
-                ? "bg-pitch-good/20 text-pitch-good font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            }`}
-          >
-            <Gamepad2 className="w-4 h-4" />
-            <span>Hit the Note!</span>
-          </Link>
-          <Link
-            href="/training/singalong"
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-              pathname === "/training/singalong"
-                ? "bg-pitch-good/20 text-pitch-good font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            }`}
-          >
-            <Music className="w-4 h-4" />
-            <span>Śpiewaj z piosenką</span>
-          </Link>
-        </div>
-      )}
+      {/* Biblioteka (Library) */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Biblioteka</h3>
+        <Link
+          href="/library"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname === "/library"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Library className="w-4 h-4" />
+          <span>Wszystkie sesje</span>
+          <span className="ml-auto text-xs opacity-50">8</span>
+        </Link>
+        <Link
+          href="/library/progress"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname === "/library/progress"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>Postepy</span>
+          <span className="ml-auto text-xs opacity-50">9</span>
+        </Link>
+      </div>
 
-      {/* Footer Info */}
-      <div className="mt-auto pt-4 border-t border-border">
-        <p className="text-xs text-muted-foreground">
-          Naciśnij <kbd className="px-1.5 py-0.5 bg-secondary rounded text-xs">?</kbd> aby zobaczyć wszystkie skróty
+      {/* Footer */}
+      <div className="mt-auto pt-4 border-t border-border space-y-2">
+        <Link
+          href="/settings"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+            pathname === "/settings"
+              ? "bg-pitch-perfect/20 text-pitch-perfect font-medium"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          <span>Ustawienia</span>
+          <span className="ml-auto text-xs opacity-50">0</span>
+        </Link>
+        <p className="text-xs text-muted-foreground px-3">
+          Nacisnij <kbd className="px-1.5 py-0.5 bg-secondary rounded text-xs">?</kbd> aby zobaczyc wszystkie skroty
         </p>
       </div>
     </div>

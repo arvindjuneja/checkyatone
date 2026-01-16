@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Music2 } from "lucide-react"
+import { Home, Radio, BookOpen, Sparkles, Library, Music2 } from "lucide-react"
 
 interface MobileNavigationProps {
   pathname: string
@@ -36,68 +36,63 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - 5 tabs */}
         <div className="px-2 pb-2">
-          <div className="flex bg-secondary/50 rounded-xl p-1 gap-1 overflow-x-auto">
+          <div className="flex bg-secondary/50 rounded-xl p-1 gap-1">
             <Link
               href="/"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
+              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
                 isActive("/") && pathname === "/"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Na żywo
+              <Home className="w-4 h-4" />
+              <span>Start</span>
             </Link>
             <Link
-              href="/training"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
-                isActive("/training")
+              href="/record"
+              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                isActive("/record")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Trenuj
+              <Radio className="w-4 h-4" />
+              <span>Nagrywaj</span>
             </Link>
             <Link
-              href="/progress"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
-                isActive("/progress")
+              href="/train"
+              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                isActive("/train")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Postępy
+              <BookOpen className="w-4 h-4" />
+              <span>Trenuj</span>
             </Link>
             <Link
-              href="/analysis"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
-                isActive("/analysis")
+              href="/edit"
+              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                isActive("/edit")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Analiza
+              <Sparkles className="w-4 h-4" />
+              <span>Edytuj</span>
             </Link>
             <Link
-              href="/studio"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
-                isActive("/studio")
+              href="/library"
+              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
+                isActive("/library")
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Studio
-            </Link>
-            <Link
-              href="/about"
-              className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-center whitespace-nowrap ${
-                isActive("/about")
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Po co?
+              <Library className="w-4 h-4" />
+              <span>Biblioteka</span>
             </Link>
           </div>
         </div>
