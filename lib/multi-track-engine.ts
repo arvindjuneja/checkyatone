@@ -1,12 +1,20 @@
 // Multi-track audio playback and mixing engine using Web Audio API
 
-import type { Track, AudioClip, AudioSource } from "./multi-track-storage"
+import type { Track, AudioClip, AudioSource, AutomationLane } from "./multi-track-storage"
+import {
+  createTrackProcessor,
+  applyProcessingSettings,
+  applyAutomationAtTime,
+  disposeTrackProcessor,
+  type TrackProcessorNodes,
+} from "./track-processor"
 
 export class MultiTrackEngine {
   private audioContext: AudioContext | null = null
   private trackSources: Map<string, AudioBufferSourceNode> = new Map()
   private trackGains: Map<string, GainNode> = new Map()
   private trackPanners: Map<string, StereoPannerNode> = new Map()
+  private trackProcessors: Map<string, TrackProcessorNodes> = new Map()
   private trackBuffers: Map<string, AudioBuffer> = new Map()
   private masterGain: GainNode | null = null
   private startTime: number = 0
@@ -14,12 +22,27 @@ export class MultiTrackEngine {
   private isPlaying: boolean = false
   private isPaused: boolean = false
 
+  // Automation state
+  private automationLanes: Map<string, AutomationLane[]> = new Map()
+  private tracksData: Map<string, Track> = new Map()
+  private automationFrameId: number | null = null
+
   constructor() {
     if (typeof window !== "undefined") {
       this.audioContext = new AudioContext()
       this.masterGain = this.audioContext.createGain()
       this.masterGain.connect(this.audioContext.destination)
     }
+  }
+
+  // Set automation lanes for real-time automation
+  setAutomationLanes(lanes: Map<string, AutomationLane[]>): void {
+    this.automationLanes = lanes
+  }
+
+  // Set tracks data for automation processing
+  setTracksData(tracks: Track[]): void {
+    this.tracksData = new Map(tracks.map(t => [t.id, t]))
   }
 
   // Load a track's audio into memory
@@ -31,17 +54,23 @@ export class MultiTrackEngine {
       const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer)
       this.trackBuffers.set(track.id, audioBuffer)
 
-      // Create gain node for this track
-      const gainNode = this.audioContext.createGain()
-      gainNode.gain.value = track.mute ? 0 : track.volume
-      gainNode.connect(this.masterGain!)
-      this.trackGains.set(track.id, gainNode)
+      // Create track processor (includes EQ, volume, pan)
+      const processor = createTrackProcessor(this.audioContext)
+      processor.output.connect(this.masterGain!)
+      this.trackProcessors.set(track.id, processor)
 
-      // Create panner node for this track
-      const pannerNode = this.audioContext.createStereoPanner()
-      pannerNode.pan.value = track.pan
-      pannerNode.connect(gainNode)
-      this.trackPanners.set(track.id, pannerNode)
+      // Apply initial processing settings
+      applyProcessingSettings(
+        processor,
+        track.processing,
+        track.volume,
+        track.pan,
+        track.mute
+      )
+
+      // Legacy compatibility - keep gain/pan references
+      this.trackGains.set(track.id, processor.volume)
+      this.trackPanners.set(track.id, processor.pan)
 
       console.log(`[MultiTrack] Loaded track: ${track.name} (${audioBuffer.duration.toFixed(2)}s)`)
     } catch (error) {
@@ -52,15 +81,24 @@ export class MultiTrackEngine {
 
   // Load all tracks
   async loadTracks(tracks: Track[]): Promise<void> {
-    // Clear existing buffers
+    // Dispose existing processors
+    for (const processor of this.trackProcessors.values()) {
+      disposeTrackProcessor(processor)
+    }
+
+    // Clear existing data
     this.trackBuffers.clear()
     this.trackGains.clear()
     this.trackPanners.clear()
+    this.trackProcessors.clear()
 
     // Load all tracks
     for (const track of tracks) {
       await this.loadTrack(track)
     }
+
+    // Store tracks data for automation
+    this.setTracksData(tracks)
   }
 
   // Update track volume
@@ -96,6 +134,9 @@ export class MultiTrackEngine {
     // Stop any currently playing tracks
     this.stop()
 
+    // Store tracks data for automation
+    this.setTracksData(tracks)
+
     // Determine if any track has solo enabled
     const hasSolo = tracks.some(track => track.solo)
 
@@ -106,21 +147,26 @@ export class MultiTrackEngine {
     // Create and start source nodes for all tracks
     for (const track of tracks) {
       const buffer = this.trackBuffers.get(track.id)
-      const pannerNode = this.trackPanners.get(track.id)
-      const gainNode = this.trackGains.get(track.id)
+      const processor = this.trackProcessors.get(track.id)
 
-      if (!buffer || !pannerNode || !gainNode) continue
+      if (!buffer || !processor) continue
 
       // Determine if this track should be audible
       const isAudible = !track.mute && (!hasSolo || track.solo)
 
-      // Create source node
+      // Create source node and connect to track processor input
       const source = this.audioContext.createBufferSource()
       source.buffer = buffer
-      source.connect(pannerNode)
+      source.connect(processor.input)
 
-      // Update gain based on solo/mute state
-      gainNode.gain.value = isAudible ? track.volume : 0
+      // Apply initial processing settings
+      applyProcessingSettings(
+        processor,
+        track.processing,
+        track.volume,
+        track.pan,
+        !isAudible
+      )
 
       // Start playback
       source.start(now, offset)
@@ -144,12 +190,70 @@ export class MultiTrackEngine {
     this.isPaused = false
     this.startTime = now - offset
 
+    // Start automation loop
+    this.startAutomationLoop()
+
     console.log(`[MultiTrack] Playing ${tracks.length} tracks from ${offset.toFixed(2)}s`)
+  }
+
+  // Start the automation update loop
+  private startAutomationLoop(): void {
+    if (this.automationFrameId !== null) {
+      cancelAnimationFrame(this.automationFrameId)
+    }
+
+    console.log('[MultiTrack] Starting automation loop, lanes:', this.automationLanes.size)
+
+    const updateAutomation = () => {
+      if (!this.isPlaying || !this.audioContext) return
+
+      const currentTime = this.getCurrentTime()
+
+      // Apply automation for each track
+      for (const [trackId, processor] of this.trackProcessors.entries()) {
+        const track = this.tracksData.get(trackId)
+        const lanes = this.automationLanes.get(trackId) || []
+
+        // Skip if no track data, but still apply automation if lanes exist
+        if (!track) continue
+
+        // Determine if track is muted
+        const hasSolo = Array.from(this.tracksData.values()).some(t => t.solo)
+        const isMuted = track.mute || (hasSolo && !track.solo)
+
+        // Apply automation even if lanes array is empty (will use base values)
+        applyAutomationAtTime(
+          processor,
+          lanes,
+          currentTime,
+          track.volume,
+          track.pan,
+          track.processing,
+          isMuted,
+          this.audioContext
+        )
+      }
+
+      this.automationFrameId = requestAnimationFrame(updateAutomation)
+    }
+
+    this.automationFrameId = requestAnimationFrame(updateAutomation)
+  }
+
+  // Stop the automation update loop
+  private stopAutomationLoop(): void {
+    if (this.automationFrameId !== null) {
+      cancelAnimationFrame(this.automationFrameId)
+      this.automationFrameId = null
+    }
   }
 
   // Pause playback
   pause(): void {
     if (!this.audioContext || !this.isPlaying) return
+
+    // Stop automation loop
+    this.stopAutomationLoop()
 
     // Calculate how far we've played
     this.pausedAt = this.audioContext.currentTime - this.startTime
@@ -173,6 +277,9 @@ export class MultiTrackEngine {
   // Stop playback and reset
   stop(): void {
     if (!this.audioContext) return
+
+    // Stop automation loop
+    this.stopAutomationLoop()
 
     // Stop all sources
     this.trackSources.forEach(source => {
@@ -243,9 +350,18 @@ export class MultiTrackEngine {
   // Clean up resources
   dispose(): void {
     this.stop()
+
+    // Dispose track processors
+    for (const processor of this.trackProcessors.values()) {
+      disposeTrackProcessor(processor)
+    }
+
     this.trackBuffers.clear()
     this.trackGains.clear()
     this.trackPanners.clear()
+    this.trackProcessors.clear()
+    this.automationLanes.clear()
+    this.tracksData.clear()
 
     if (this.audioContext) {
       this.audioContext.close()
@@ -397,6 +513,9 @@ export class MultiTrackEngine {
     // Stop any currently playing
     this.stop()
 
+    // Store tracks data for automation
+    this.setTracksData(tracks)
+
     // Load any sources that aren't loaded yet
     for (const source of sources.values()) {
       if (!this.trackBuffers.has(source.id)) {
@@ -404,18 +523,25 @@ export class MultiTrackEngine {
       }
     }
 
-    // Create gain nodes for each track if they don't exist
+    // Create track processors for each track if they don't exist
     for (const track of tracks) {
-      if (!this.trackGains.has(track.id)) {
-        const gainNode = this.audioContext.createGain()
-        gainNode.gain.value = track.mute ? 0 : track.volume
-        gainNode.connect(this.masterGain)
-        this.trackGains.set(track.id, gainNode)
+      if (!this.trackProcessors.has(track.id)) {
+        const processor = createTrackProcessor(this.audioContext)
+        processor.output.connect(this.masterGain)
+        this.trackProcessors.set(track.id, processor)
 
-        const pannerNode = this.audioContext.createStereoPanner()
-        pannerNode.pan.value = track.pan
-        pannerNode.connect(gainNode)
-        this.trackPanners.set(track.id, pannerNode)
+        // Apply initial processing settings
+        applyProcessingSettings(
+          processor,
+          track.processing,
+          track.volume,
+          track.pan,
+          track.mute
+        )
+
+        // Legacy compatibility
+        this.trackGains.set(track.id, processor.volume)
+        this.trackPanners.set(track.id, processor.pan)
       }
     }
 
@@ -429,14 +555,21 @@ export class MultiTrackEngine {
     let clipsPlaying = 0
     for (const track of tracks) {
       const trackClips = clips.get(track.id) || []
-      const pannerNode = this.trackPanners.get(track.id)
-      const gainNode = this.trackGains.get(track.id)
+      const processor = this.trackProcessors.get(track.id)
 
-      if (!pannerNode || !gainNode) continue
+      if (!processor) continue
 
       // Determine if this track should be audible
       const isAudible = !track.mute && (!hasSolo || track.solo)
-      gainNode.gain.value = isAudible ? track.volume : 0
+
+      // Apply processing settings
+      applyProcessingSettings(
+        processor,
+        track.processing,
+        track.volume,
+        track.pan,
+        !isAudible
+      )
 
       for (const clip of trackClips) {
         const source = sources.get(clip.audioSourceId)
@@ -464,10 +597,10 @@ export class MultiTrackEngine {
           sourceOffset += (offset - clipStartInTimeline)
         }
 
-        // Create source node
+        // Create source node and connect to track processor
         const sourceNode = this.audioContext.createBufferSource()
         sourceNode.buffer = buffer
-        sourceNode.connect(pannerNode)
+        sourceNode.connect(processor.input)
 
         // Calculate duration to play
         const duration = (clip.duration - clip.trimStart - clip.trimEnd) - Math.max(0, offset - clipStartInTimeline)
@@ -492,6 +625,9 @@ export class MultiTrackEngine {
       this.isPlaying = true
       this.isPaused = false
       this.startTime = now - offset
+
+      // Start automation loop
+      this.startAutomationLoop()
 
       console.log(`[MultiTrack] Playing ${clipsPlaying} clips from ${offset.toFixed(2)}s`)
     } else {

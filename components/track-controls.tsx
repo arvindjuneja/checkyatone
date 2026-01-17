@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Volume2, VolumeX, Headphones, Trash2, GripVertical, ChevronDown, ChevronUp } from "lucide-react"
-import type { Track } from "@/lib/multi-track-storage"
+import { Volume2, VolumeX, Headphones, Trash2, GripVertical, ChevronDown, ChevronUp, Activity } from "lucide-react"
+import type { Track, AutomationLane } from "@/lib/multi-track-storage"
+import { AUTOMATION_LABELS, AUTOMATION_COLORS, type AutomationParameter } from "@/lib/automation"
 
 interface TrackControlsProps {
   track: Track
@@ -12,7 +13,12 @@ interface TrackControlsProps {
   onPlayTrack: (trackId: string) => void
   isPlaying: boolean
   isSoloActive: boolean // Whether any track has solo enabled
+  automationLanes?: AutomationLane[]
+  onCreateAutomationLane?: (trackId: string, parameter: AutomationParameter) => void
+  onToggleAutomationLane?: (laneId: string, visible: boolean) => void
 }
+
+const AUTOMATION_PARAMS: AutomationParameter[] = ['volume', 'eqMid', 'pan']
 
 export function TrackControls({
   track,
@@ -21,8 +27,12 @@ export function TrackControls({
   onPlayTrack,
   isPlaying,
   isSoloActive,
+  automationLanes = [],
+  onCreateAutomationLane,
+  onToggleAutomationLane,
 }: TrackControlsProps) {
   const [showDetails, setShowDetails] = useState(false)
+  const [showAutomation, setShowAutomation] = useState(false)
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const volume = parseFloat(e.target.value)
@@ -95,6 +105,16 @@ export function TrackControls({
           </Button>
 
           <Button
+            variant={showAutomation ? "default" : "ghost"}
+            size="icon-sm"
+            onClick={() => setShowAutomation(!showAutomation)}
+            title="Automation"
+            className={showAutomation ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" : ""}
+          >
+            <Activity className="w-3 h-3" />
+          </Button>
+
+          <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => onDeleteTrack(track.id)}
@@ -114,6 +134,52 @@ export function TrackControls({
           </Button>
         </div>
       </div>
+
+      {/* Automation Controls (Collapsible) */}
+      {showAutomation && (
+        <div className="p-3 border-t border-border/50 bg-secondary/20">
+          <div className="text-xs font-medium text-muted-foreground mb-2">AUTOMATYKA</div>
+          <div className="flex flex-wrap gap-2">
+            {AUTOMATION_PARAMS.map((param) => {
+              const lane = automationLanes.find(l => l.parameter === param)
+              const isActive = lane?.visible
+
+              return (
+                <button
+                  key={param}
+                  onClick={() => {
+                    if (lane) {
+                      onToggleAutomationLane?.(lane.id, !lane.visible)
+                    } else {
+                      onCreateAutomationLane?.(track.id, param)
+                    }
+                  }}
+                  className={`
+                    px-2 py-1 text-xs rounded-md border transition-colors
+                    ${isActive
+                      ? 'border-transparent text-white'
+                      : lane
+                        ? 'border-border text-muted-foreground hover:border-border/80'
+                        : 'border-dashed border-border text-muted-foreground/50 hover:border-border/80 hover:text-muted-foreground'
+                    }
+                  `}
+                  style={{
+                    backgroundColor: isActive ? AUTOMATION_COLORS[param] : undefined,
+                  }}
+                  title={lane ? (isActive ? 'Hide lane' : 'Show lane') : 'Create lane'}
+                >
+                  {AUTOMATION_LABELS[param]}
+                </button>
+              )
+            })}
+          </div>
+          {automationLanes.filter(l => l.visible).length > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Click timeline to add keyframes
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Track Details (Collapsible) */}
       {showDetails && (

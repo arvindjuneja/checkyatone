@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { trackPageView } from "@/lib/analytics"
 import { useSessionLibrary } from "@/hooks/use-session-library"
 import { Button } from "@/components/ui/button"
-import { Radio, BookOpen, Music, ChevronRight, TrendingUp, Calendar, Target, Play, BarChart3 } from "lucide-react"
+import { Radio, BookOpen, Music, ChevronRight, TrendingUp, Calendar, Target, Play, BarChart3, Layers } from "lucide-react"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -76,7 +76,7 @@ export default function DashboardPage() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">
           Szybki start
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <button
             onClick={() => router.push("/record/live")}
             className="group bg-pitch-perfect/10 hover:bg-pitch-perfect/20 transition-colors rounded-xl p-4 text-left"
@@ -118,6 +118,21 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-semibold">Karaoke</h3>
                 <p className="text-xs text-muted-foreground">Z YouTube</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push("/edit/projects")}
+            className="group bg-amber-500/10 hover:bg-amber-500/20 transition-colors rounded-xl p-4 text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
+                <Layers className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Multi-track</h3>
+                <p className="text-xs text-muted-foreground">Edytor DAW</p>
               </div>
             </div>
           </button>

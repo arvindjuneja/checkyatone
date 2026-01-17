@@ -1,11 +1,18 @@
 // Multi-track project storage using IndexedDB
 
+import type { AutomationLane, AutomationPoint, AutomationParameter } from './automation'
+
 const DB_NAME = "vocal-coach-multitrack"
-const DB_VERSION = 2 // Bumped for timeline data models
+const DB_VERSION = 3 // Bumped for automation lanes
 const PROJECTS_STORE = "projects"
 const TRACKS_STORE = "tracks"
 const AUDIO_SOURCES_STORE = "audioSources"
 const CLIPS_STORE = "clips"
+const AUTOMATION_LANES_STORE = "automationLanes"
+const TEMPLATES_STORE = "templates"
+
+// Re-export automation types for convenience
+export type { AutomationLane, AutomationPoint, AutomationParameter }
 
 // Audio clip on the timeline
 export interface AudioClip {
@@ -60,6 +67,14 @@ export interface TimelineState {
   loopEnd: number
 }
 
+// Per-track processing settings
+export interface TrackProcessing {
+  enabled: boolean
+  eqLow: number   // -12 to +12 dB
+  eqMid: number   // -12 to +12 dB
+  eqHigh: number  // -12 to +12 dB
+}
+
 // Legacy Track interface (for backward compatibility with mixer view)
 export interface Track {
   id: string
@@ -77,6 +92,10 @@ export interface Track {
   // Timeline additions
   height?: number // Track lane height in pixels (default: 100)
   clips?: string[] // Array of clip IDs (for timeline mode)
+
+  // Processing and automation
+  processing?: TrackProcessing
+  automationLaneIds?: string[] // IDs of automation lanes for this track
 }
 
 export interface MultiTrackProject {
@@ -136,6 +155,17 @@ class MultiTrackStorageDB {
           const clipStore = db.createObjectStore(CLIPS_STORE, { keyPath: "id" })
           clipStore.createIndex("trackId", "trackId", { unique: false })
           clipStore.createIndex("audioSourceId", "audioSourceId", { unique: false })
+        }
+
+        // Create automation lanes store
+        if (!db.objectStoreNames.contains(AUTOMATION_LANES_STORE)) {
+          const automationStore = db.createObjectStore(AUTOMATION_LANES_STORE, { keyPath: "id" })
+          automationStore.createIndex("trackId", "trackId", { unique: false })
+        }
+
+        // Create templates store
+        if (!db.objectStoreNames.contains(TEMPLATES_STORE)) {
+          db.createObjectStore(TEMPLATES_STORE, { keyPath: "id" })
         }
       }
     })
@@ -374,6 +404,67 @@ class MultiTrackStorageDB {
       request.onerror = () => reject(request.error)
     })
   }
+
+  // AutomationLane operations
+  async saveAutomationLane(lane: AutomationLane): Promise<void> {
+    if (!this.db) await this.init()
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([AUTOMATION_LANES_STORE], "readwrite")
+      const store = transaction.objectStore(AUTOMATION_LANES_STORE)
+      const request = store.put(lane)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getAutomationLane(laneId: string): Promise<AutomationLane | null> {
+    if (!this.db) await this.init()
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([AUTOMATION_LANES_STORE], "readonly")
+      const store = transaction.objectStore(AUTOMATION_LANES_STORE)
+      const request = store.get(laneId)
+
+      request.onsuccess = () => resolve(request.result || null)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async getTrackAutomationLanes(trackId: string): Promise<AutomationLane[]> {
+    if (!this.db) await this.init()
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([AUTOMATION_LANES_STORE], "readonly")
+      const store = transaction.objectStore(AUTOMATION_LANES_STORE)
+      const index = store.index("trackId")
+      const request = index.getAll(trackId)
+
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async deleteAutomationLane(laneId: string): Promise<void> {
+    if (!this.db) await this.init()
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([AUTOMATION_LANES_STORE], "readwrite")
+      const store = transaction.objectStore(AUTOMATION_LANES_STORE)
+      const request = store.delete(laneId)
+
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+  }
+
+  async deleteTrackAutomationLanes(trackId: string): Promise<void> {
+    const lanes = await this.getTrackAutomationLanes(trackId)
+    for (const lane of lanes) {
+      await this.deleteAutomationLane(lane.id)
+    }
+  }
 }
 
 // Singleton instance
@@ -503,6 +594,9 @@ export async function removeTrackFromProject(trackId: string): Promise<void> {
     project.updatedAt = Date.now()
     await multiTrackStorage.saveProject(project)
   }
+
+  // Delete automation lanes for this track
+  await multiTrackStorage.deleteTrackAutomationLanes(trackId)
 
   await multiTrackStorage.deleteTrack(trackId)
 }
@@ -640,4 +734,91 @@ export async function generateWaveformData(audioBlob: Blob, samples: number = 10
 
   await audioContext.close()
   return waveform
+}
+
+// Automation lane helper functions
+import {
+  createAutomationLane as createLane,
+  addPoint,
+  updatePoint,
+  removePoint,
+  AUTOMATION_COLORS,
+} from './automation'
+
+export async function createAutomationLaneForTrack(
+  trackId: string,
+  parameter: AutomationParameter,
+  visible: boolean = true
+): Promise<string> {
+  const lane = createLane(trackId, parameter, visible)
+  await multiTrackStorage.saveAutomationLane(lane)
+
+  // Update track's automation lane IDs
+  const track = await multiTrackStorage.getTrack(trackId)
+  if (track) {
+    const laneIds = track.automationLaneIds || []
+    track.automationLaneIds = [...laneIds, lane.id]
+    await multiTrackStorage.saveTrack(track)
+  }
+
+  return lane.id
+}
+
+export async function updateAutomationLane(
+  laneId: string,
+  updates: Partial<AutomationLane>
+): Promise<void> {
+  const lane = await multiTrackStorage.getAutomationLane(laneId)
+  if (!lane) throw new Error("Automation lane not found")
+
+  const updatedLane: AutomationLane = { ...lane, ...updates }
+  await multiTrackStorage.saveAutomationLane(updatedLane)
+}
+
+export async function addAutomationPoint(
+  laneId: string,
+  time: number,
+  value: number,
+  curve: 'linear' | 'smooth' = 'smooth'
+): Promise<void> {
+  const lane = await multiTrackStorage.getAutomationLane(laneId)
+  if (!lane) throw new Error("Automation lane not found")
+
+  const updatedLane = addPoint(lane, time, value, curve)
+  await multiTrackStorage.saveAutomationLane(updatedLane)
+}
+
+export async function updateAutomationPoint(
+  laneId: string,
+  pointId: string,
+  updates: { time?: number; value?: number; curve?: 'linear' | 'smooth' }
+): Promise<void> {
+  const lane = await multiTrackStorage.getAutomationLane(laneId)
+  if (!lane) throw new Error("Automation lane not found")
+
+  const updatedLane = updatePoint(lane, pointId, updates)
+  await multiTrackStorage.saveAutomationLane(updatedLane)
+}
+
+export async function deleteAutomationPoint(
+  laneId: string,
+  pointId: string
+): Promise<void> {
+  const lane = await multiTrackStorage.getAutomationLane(laneId)
+  if (!lane) throw new Error("Automation lane not found")
+
+  const updatedLane = removePoint(lane, pointId)
+  await multiTrackStorage.saveAutomationLane(updatedLane)
+}
+
+export async function getProjectAutomationLanes(projectId: string): Promise<Map<string, AutomationLane[]>> {
+  const tracks = await multiTrackStorage.getProjectTracks(projectId)
+  const lanesMap = new Map<string, AutomationLane[]>()
+
+  for (const track of tracks) {
+    const lanes = await multiTrackStorage.getTrackAutomationLanes(track.id)
+    lanesMap.set(track.id, lanes)
+  }
+
+  return lanesMap
 }
