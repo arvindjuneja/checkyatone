@@ -30,6 +30,7 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
   const [isHittingChord, setIsHittingChord] = useState(false)
   const [detectedNotes, setDetectedNotes] = useState<string[]>([])
   const [matchedNotes, setMatchedNotes] = useState<string[]>([])
+  const [isListeningPaused, setIsListeningPaused] = useState(false)
 
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
   const chordStartTimeRef = useRef<number>(0)
@@ -37,6 +38,27 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
   const availableChordsRef = useRef<GuitarChord[]>([])
   const matchedNotesRef = useRef<Set<string>>(new Set())
   const detectedNotesRef = useRef<string[]>([])
+  const listeningPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Helper to pause listening while chord plays (prevents mic from catching playback)
+  const pauseListeningDuringPlayback = useCallback((durationMs: number = 2000) => {
+    // Clear any existing timeout
+    if (listeningPauseTimeoutRef.current) {
+      clearTimeout(listeningPauseTimeoutRef.current)
+    }
+
+    // Pause listening and reset progress
+    setIsListeningPaused(true)
+    consecutiveCorrectRef.current = 0
+    setHitProgress(0)
+    setIsHittingChord(false)
+
+    // Resume listening after delay
+    listeningPauseTimeoutRef.current = setTimeout(() => {
+      setIsListeningPaused(false)
+      chordStartTimeRef.current = Date.now() // Reset timer when listening resumes
+    }, durationMs)
+  }, [])
 
   useEffect(() => {
     if (typeof window !== "undefined" && !synthesizerRef.current) {
@@ -47,6 +69,9 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
       if (synthesizerRef.current) {
         synthesizerRef.current.close()
         synthesizerRef.current = null
+      }
+      if (listeningPauseTimeoutRef.current) {
+        clearTimeout(listeningPauseTimeoutRef.current)
       }
     }
   }, [])
@@ -72,6 +97,11 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
     if (!currentChord || !synthesizerRef.current) return
 
     setIsPlayingChord(true)
+
+    // Pause listening to prevent mic from catching the playback
+    // Chord plays for ~1.5s, add buffer for reverb/decay
+    pauseListeningDuringPlayback(2500)
+
     try {
       console.log(`🎸 Playing chord: ${currentChord.displayName}`)
 
@@ -98,7 +128,7 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
     } finally {
       setTimeout(() => setIsPlayingChord(false), 1500)
     }
-  }, [currentChord])
+  }, [currentChord, pauseListeningDuringPlayback])
 
   const startGame = useCallback(() => {
     const firstChord = generateRandomChord()
@@ -118,7 +148,8 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
 
     trackEvent("chord_game_started", "Game", difficulty)
 
-    // Auto-play the first chord
+    // Auto-play the first chord with listening paused
+    pauseListeningDuringPlayback(2000)
     setTimeout(() => {
       if (synthesizerRef.current) {
         const frequencies = firstChord.frequencies
@@ -129,10 +160,10 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
         })
       }
     }, 100)
-  }, [generateRandomChord, difficulty])
+  }, [generateRandomChord, difficulty, pauseListeningDuringPlayback])
 
   const processPitch = useCallback((pitch: PitchData) => {
-    if (phase !== "playing" || !currentChord) return
+    if (phase !== "playing" || !currentChord || isListeningPaused) return
 
     const detectedNote = pitch.note
     const targetNotes = currentChord.notes
@@ -201,11 +232,11 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
         matchedNotesRef.current = new Set()
         detectedNotesRef.current = []
         consecutiveCorrectRef.current = 0
-        chordStartTimeRef.current = Date.now()
         setPhase("playing")
 
-        // Play next chord
+        // Play next chord with listening paused during playback
         if (synthesizerRef.current) {
+          pauseListeningDuringPlayback(2000) // Pause while chord plays
           setTimeout(() => {
             nextChord.frequencies.forEach((freq, i) => {
               setTimeout(() => {
@@ -216,7 +247,7 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
         }
       }, 1500)
     }
-  }, [phase, currentChord, generateRandomChord])
+  }, [phase, currentChord, isListeningPaused, generateRandomChord, pauseListeningDuringPlayback])
 
   const skipChord = useCallback(() => {
     if (phase !== "playing" || !currentChord) return
@@ -249,10 +280,10 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
       matchedNotesRef.current = new Set()
       detectedNotesRef.current = []
       consecutiveCorrectRef.current = 0
-      chordStartTimeRef.current = Date.now()
 
-      // Play next chord
+      // Play next chord with listening paused
       if (synthesizerRef.current) {
+        pauseListeningDuringPlayback(2000)
         setTimeout(() => {
           nextChord.frequencies.forEach((freq, i) => {
             setTimeout(() => {
@@ -262,7 +293,7 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
         }, 300)
       }
     }
-  }, [phase, currentChord, lives, score, generateRandomChord])
+  }, [phase, currentChord, lives, score, generateRandomChord, pauseListeningDuringPlayback])
 
   const reset = useCallback(() => {
     setPhase("ready")
@@ -286,6 +317,7 @@ export function useHitTheChordGame(difficulty: Difficulty = "easy") {
     lives,
     attempts,
     isPlayingChord,
+    isListeningPaused,
     hitProgress,
     isHittingChord,
     detectedNotes,

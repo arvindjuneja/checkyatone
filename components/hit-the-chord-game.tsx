@@ -119,6 +119,7 @@ export function HitTheChordGame({
     lives,
     attempts,
     isPlayingChord,
+    isListeningPaused,
     hitProgress,
     isHittingChord,
     detectedNotes,
@@ -173,6 +174,9 @@ export function HitTheChordGame({
               <span>Mozesz pominac akord, ale stracisz zycie</span>
             </li>
           </ul>
+          <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
+            Tip: Uzyj sluchawek, zeby mikrofon nie lapał dzwieku podgladu!
+          </p>
         </div>
 
         {/* Difficulty Selector */}
@@ -332,13 +336,15 @@ export function HitTheChordGame({
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {hitProgress < 10
-              ? "Zacznij grac..."
-              : hitProgress < 50
-                ? "Utrzymuj akord..."
-                : hitProgress < 80
-                  ? "Swietnie! Jeszcze chwile..."
-                  : "Prawie!"}
+            {isListeningPaused
+              ? "Slucham podgladu... zaraz zacznij grac!"
+              : hitProgress < 10
+                ? "Zacznij grac..."
+                : hitProgress < 50
+                  ? "Utrzymuj akord..."
+                  : hitProgress < 80
+                    ? "Swietnie! Jeszcze chwile..."
+                    : "Prawie!"}
           </div>
         </div>
 
