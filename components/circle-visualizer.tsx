@@ -161,8 +161,11 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
     const centerY = height / 2
     const radius = Math.max(40, Math.min(width, height) / 2 - 30)
 
-    // Background
-    ctx.fillStyle = "oklch(0.12 0.01 270)"
+    // Background - graphite radial gradient
+    const bgGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius * 1.5)
+    bgGradient.addColorStop(0, "oklch(0.16 0.005 0)")
+    bgGradient.addColorStop(1, "oklch(0.12 0.005 0)")
+    ctx.fillStyle = bgGradient
     ctx.fillRect(0, 0, width, height)
 
     const innerRadius = Math.max(0, radius * 0.35)
@@ -191,11 +194,11 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
       const activity = activities.get(idx)
       const isActive = activity && activity.intensity > 0.05
 
-      // Colors based on accuracy
+      // Colors based on accuracy - using design system pitch colors
       const getColor = (accuracy: "perfect" | "good" | "off", lightness: number, alpha: number = 1) => {
-        const hues = { perfect: 145, good: 80, off: 25 }
-        const chroma = 0.18
-        return `oklch(${lightness} ${chroma} ${hues[accuracy]} / ${alpha})`
+        const hues = { perfect: 145, good: 85, off: 25 }
+        const chromas = { perfect: 0.12, good: 0.08, off: 0.10 }
+        return `oklch(${lightness} ${chromas[accuracy]} ${hues[accuracy]} / ${alpha})`
       }
 
       // Inner segment
@@ -206,13 +209,19 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
 
       if (isActive) {
         const intensity = activity.intensity
-        ctx.fillStyle = getColor(activity.accuracy, 0.55 + intensity * 0.15, 0.7 + intensity * 0.3)
+        // Add pulsing glow for active notes
+        const pulse = Math.sin(Date.now() / 200) * 0.1 + 0.9
+        ctx.shadowColor = getColor(activity.accuracy, 0.55, 0.5)
+        ctx.shadowBlur = 15 * pulse * intensity
+        ctx.fillStyle = getColor(activity.accuracy, 0.50 + intensity * 0.15, 0.7 + intensity * 0.3)
       } else {
-        ctx.fillStyle = "oklch(0.18 0.01 270)"
+        ctx.shadowBlur = 0
+        ctx.fillStyle = "oklch(0.18 0.005 0)"
       }
       ctx.fill()
+      ctx.shadowBlur = 0
 
-      ctx.strokeStyle = "oklch(0.25 0.01 270)"
+      ctx.strokeStyle = "oklch(0.25 0.005 0)"
       ctx.lineWidth = 1
       ctx.stroke()
 
@@ -224,19 +233,24 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
 
       if (isActive) {
         const intensity = activity.intensity
+        const pulse = Math.sin(Date.now() / 200) * 0.1 + 0.9
+        ctx.shadowColor = getColor(activity.accuracy, 0.55, 0.4)
+        ctx.shadowBlur = 12 * pulse * intensity
         ctx.fillStyle = getColor(activity.accuracy, 0.45 + intensity * 0.15, 0.6 + intensity * 0.4)
       } else {
-        ctx.fillStyle = "oklch(0.22 0.01 270)"
+        ctx.shadowBlur = 0
+        ctx.fillStyle = "oklch(0.22 0.005 0)"
       }
       ctx.fill()
+      ctx.shadowBlur = 0
 
-      ctx.strokeStyle = "oklch(0.28 0.01 270)"
+      ctx.strokeStyle = "oklch(0.28 0.005 0)"
       ctx.lineWidth = 1
       ctx.stroke()
     })
 
     // Draw note labels outside the wheel
-    ctx.font = "bold 16px Geist, system-ui, sans-serif"
+    ctx.font = "bold 16px Inter, system-ui, sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
 
@@ -248,68 +262,71 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
 
       const activity = activities.get(idx)
       const isActive = activity && activity.intensity > 0.1
-      
+
       if (isActive) {
         const colors = {
-          perfect: "oklch(0.75 0.15 145)",
-          good: "oklch(0.80 0.15 80)",
-          off: "oklch(0.70 0.15 25)",
+          perfect: "oklch(0.55 0.12 145)",
+          good: "oklch(0.60 0.08 85)",
+          off: "oklch(0.50 0.10 25)",
         }
         ctx.fillStyle = colors[activity.accuracy]
       } else {
-        ctx.fillStyle = "oklch(0.55 0.02 270)"
+        ctx.fillStyle = "oklch(0.55 0.005 0)"
       }
-      
+
       ctx.fillText(note, x, y)
     })
 
-    // Draw center circle
+    // Draw center circle - graphite
     ctx.beginPath()
     ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2)
-    ctx.fillStyle = "oklch(0.08 0.01 270)"
+    ctx.fillStyle = "oklch(0.12 0.005 0)"
     ctx.fill()
-    ctx.strokeStyle = "oklch(0.30 0.01 270)"
+    ctx.strokeStyle = "oklch(0.30 0.005 0)"
     ctx.lineWidth = 2
     ctx.stroke()
 
     // Draw center text
-    ctx.font = "bold 24px Geist, system-ui, sans-serif"
+    ctx.font = "bold 24px Inter, system-ui, sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
 
     if (!isRecording) {
-      ctx.fillStyle = "oklch(0.50 0.02 270)"
+      ctx.fillStyle = "oklch(0.55 0.005 0)"
       ctx.fillText("Start", centerX, centerY)
     } else if (currentPitch) {
       const colors = {
-        perfect: "oklch(0.75 0.15 145)",
-        good: "oklch(0.80 0.15 80)",
-        off: "oklch(0.70 0.15 25)",
+        perfect: "oklch(0.55 0.12 145)",
+        good: "oklch(0.60 0.08 85)",
+        off: "oklch(0.50 0.10 25)",
       }
-      ctx.fillStyle = currentAccuracy ? colors[currentAccuracy] : "oklch(0.85 0.02 270)"
+      ctx.fillStyle = currentAccuracy ? colors[currentAccuracy] : "oklch(0.92 0.01 90)"
       ctx.fillText(`${currentPitch.note}${currentPitch.octave}`, centerX, centerY)
     } else {
-      ctx.fillStyle = "oklch(0.40 0.02 270)"
+      ctx.fillStyle = "oklch(0.45 0.005 0)"
       ctx.fillText("...", centerX, centerY)
     }
 
-    // Draw position indicator (white dot) on the wheel for current pitch
+    // Draw position indicator on the wheel for current pitch - primary orange
     if (currentPitch && isRecording && currentNoteIdx >= 0) {
       const angle = startOffset + currentNoteIdx * segmentAngle + segmentAngle / 2
       const indicatorRadius = middleRadius - 15
       const x = centerX + Math.cos(angle) * indicatorRadius
       const y = centerY + Math.sin(angle) * indicatorRadius
 
-      // Outer glow
+      // Outer glow - orange
       ctx.beginPath()
       ctx.arc(x, y, 10, 0, Math.PI * 2)
-      ctx.fillStyle = "oklch(1.0 0 0 / 0.3)"
+      ctx.shadowColor = "oklch(0.72 0.18 45 / 0.5)"
+      ctx.shadowBlur = 12
+      ctx.fillStyle = "oklch(0.72 0.18 45 / 0.4)"
       ctx.fill()
+      ctx.shadowBlur = 0
 
-      // Inner dot
+      // Inner dot - orange
       ctx.beginPath()
       ctx.arc(x, y, 6, 0, Math.PI * 2)
-      ctx.fillStyle = "oklch(1.0 0 0)"
+      ctx.fillStyle = "oklch(0.72 0.18 45)"
       ctx.fill()
     }
 
@@ -342,10 +359,9 @@ export function CircleVisualizer({ pitchHistory, currentPitch, isRecording }: Ci
 
   return (
     <div className="space-y-4">
-      <canvas 
-        ref={canvasRef} 
-        className="w-full rounded-xl" 
-        style={{ height: "320px", width: "320px", maxWidth: "100%" }} 
+      <canvas
+        ref={canvasRef}
+        className="w-full aspect-square rounded-3xl"
       />
       
       {/* Stats display */}

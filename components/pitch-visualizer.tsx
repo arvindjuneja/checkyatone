@@ -27,15 +27,12 @@ function calculateVisibleRange(
   const now = Date.now()
   const recentPitches = pitchHistory.filter((p) => now - p.timestamp < VISIBLE_DURATION)
 
-  // Get all octaves from recent data
   const allPitches = currentPitch ? [...recentPitches, currentPitch] : recentPitches
 
   if (allPitches.length === 0) {
-    // Default range: C3 to C5 (typical singing range)
     return { minOctave: 3, maxOctave: 5, minSemitone: 36, maxSemitone: 72 }
   }
 
-  // Convert to absolute semitones (C0 = 0)
   const semitones = allPitches.map((p) => {
     const noteIdx = ALL_NOTES.indexOf(p.note)
     return p.octave * 12 + noteIdx
@@ -44,13 +41,11 @@ function calculateVisibleRange(
   const minSemitone = Math.min(...semitones)
   const maxSemitone = Math.max(...semitones)
 
-  // Add padding of 4 semitones (major third) on each side
   const paddedMin = minSemitone - 4
   const paddedMax = maxSemitone + 4
 
-  // Ensure minimum 2 octave range for readability
   const range = paddedMax - paddedMin
-  const minRange = 24 // 2 octaves
+  const minRange = 24
 
   let finalMin = paddedMin
   let finalMax = paddedMax
@@ -61,7 +56,6 @@ function calculateVisibleRange(
     finalMax = paddedMax + padding
   }
 
-  // Clamp to reasonable limits (C1 to C7)
   finalMin = Math.max(12, finalMin)
   finalMax = Math.min(96, finalMax)
 
@@ -96,12 +90,15 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
     const pianoWidth = 60
     const timelineWidth = width - pianoWidth
 
-    // Background
-    ctx.fillStyle = "oklch(0.12 0.01 270)"
+    // Background - graphite gradient (neutral)
+    const bgGradient = ctx.createLinearGradient(0, 0, 0, height)
+    bgGradient.addColorStop(0, "oklch(0.14 0.005 0)")
+    bgGradient.addColorStop(1, "oklch(0.12 0.005 0)")
+    ctx.fillStyle = bgGradient
     ctx.fillRect(0, 0, width, height)
 
     const targetRange = calculateVisibleRange(pitchHistory, currentPitch)
-    const lerp = 0.15 // Smooth transition speed
+    const lerp = 0.15
     currentRangeRef.current.minSemitone += (targetRange.minSemitone - currentRangeRef.current.minSemitone) * lerp
     currentRangeRef.current.maxSemitone += (targetRange.maxSemitone - currentRangeRef.current.maxSemitone) * lerp
 
@@ -117,57 +114,54 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       const y = (maxSemitone - semitone) * noteHeight
       const isBlack = note.includes("#")
 
-      // White key background
+      // Piano key - warm ivory for white, graphite for black
       const gradient = ctx.createLinearGradient(0, 0, pianoWidth - 2, 0)
       if (isBlack) {
-        gradient.addColorStop(0, "oklch(0.15 0.01 270)")
-        gradient.addColorStop(1, "oklch(0.18 0.01 270)")
+        gradient.addColorStop(0, "oklch(0.18 0.005 0)")
+        gradient.addColorStop(1, "oklch(0.14 0.005 0)")
       } else {
-        gradient.addColorStop(0, "oklch(0.92 0.01 270)")
-        gradient.addColorStop(1, "oklch(0.88 0.01 270)")
+        gradient.addColorStop(0, "oklch(0.92 0.01 90)")
+        gradient.addColorStop(1, "oklch(0.88 0.01 90)")
       }
       ctx.fillStyle = gradient
       ctx.fillRect(0, y, pianoWidth - 2, noteHeight - 1)
 
-      // Border for white keys
       if (!isBlack) {
-        ctx.strokeStyle = "oklch(0.75 0.01 270)"
+        ctx.strokeStyle = "oklch(0.75 0.005 0)"
         ctx.lineWidth = 1
         ctx.strokeRect(0, y, pianoWidth - 2, noteHeight - 1)
       }
 
-      // Black key overlay (shorter width)
       if (isBlack) {
         const blackKeyWidth = pianoWidth * 0.6
         const blackGradient = ctx.createLinearGradient(pianoWidth - blackKeyWidth - 2, 0, pianoWidth - 2, 0)
-        blackGradient.addColorStop(0, "oklch(0.12 0.01 270)")
-        blackGradient.addColorStop(1, "oklch(0.08 0.01 270)")
+        blackGradient.addColorStop(0, "oklch(0.18 0.005 0)")
+        blackGradient.addColorStop(1, "oklch(0.12 0.005 0)")
         ctx.fillStyle = blackGradient
         ctx.fillRect(pianoWidth - blackKeyWidth - 2, y, blackKeyWidth, noteHeight - 1)
-        
-        // Black key border
-        ctx.strokeStyle = "oklch(0.05 0.01 270)"
+
+        ctx.strokeStyle = "oklch(0.10 0.005 0)"
         ctx.lineWidth = 1
         ctx.strokeRect(pianoWidth - blackKeyWidth - 2, y, blackKeyWidth, noteHeight - 1)
       }
 
-      // Lane background
-      ctx.fillStyle = isBlack ? "oklch(0.10 0.01 270)" : "oklch(0.14 0.01 270)"
+      // Lane background - graphite
+      ctx.fillStyle = isBlack ? "oklch(0.12 0.005 0)" : "oklch(0.14 0.005 0)"
       ctx.fillRect(pianoWidth, y, timelineWidth, noteHeight)
 
-      // Lane line
-      ctx.strokeStyle = "oklch(0.20 0.01 270)"
+      // Lane line - subtle graphite
+      ctx.strokeStyle = "oklch(0.20 0.005 0)"
       ctx.lineWidth = 0.5
       ctx.beginPath()
       ctx.moveTo(pianoWidth, y + noteHeight)
       ctx.lineTo(width, y + noteHeight)
       ctx.stroke()
 
-      // Note label
+      // Note label - neutral tones
       const showLabel = note === "C" || (noteHeight > 15 && !isBlack)
       if (showLabel) {
-        ctx.fillStyle = isBlack ? "oklch(0.65 0 0)" : "oklch(0.30 0 0)"
-        ctx.font = noteHeight > 12 ? "bold 10px Geist" : "bold 8px Geist"
+        ctx.fillStyle = isBlack ? "oklch(0.60 0.005 0)" : "oklch(0.30 0.005 0)"
+        ctx.font = noteHeight > 12 ? "bold 10px Inter, system-ui" : "bold 8px Inter, system-ui"
         ctx.textAlign = "right"
         ctx.textBaseline = "middle"
         const labelX = isBlack ? pianoWidth - 6 : pianoWidth - 10
@@ -175,11 +169,11 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       }
     }
 
-    // Time markers
+    // Time markers - muted
     const now = Date.now()
     const startTime = now - VISIBLE_DURATION
-    ctx.fillStyle = "oklch(0.4 0 0)"
-    ctx.font = "10px Geist"
+    ctx.fillStyle = "oklch(0.50 0.005 0)"
+    ctx.font = "10px Inter, system-ui"
     ctx.textAlign = "left"
     for (let t = 0; t <= VISIBLE_DURATION; t += 1000) {
       const x = pianoWidth + (t / VISIBLE_DURATION) * timelineWidth
@@ -190,7 +184,6 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
     const visiblePitches = pitchHistory.filter((p) => p.timestamp >= startTime)
 
     if (visiblePitches.length > 0) {
-      // Group into ribbons
       const ribbons: NoteRibbon[] = []
       let currentRibbon: NoteRibbon | null = null
 
@@ -219,7 +212,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       })
       if (currentRibbon) ribbons.push(currentRibbon)
 
-      // Draw ribbons
+      // Draw ribbons with new harmonious colors
       ribbons.forEach((ribbon) => {
         const noteIdx = ALL_NOTES.indexOf(ribbon.note)
         if (noteIdx === -1) return
@@ -230,7 +223,6 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
         const y = (maxSemitone - semitone) * noteHeight
         const laneCenterY = y + noteHeight / 2
 
-        // Determine dominant accuracy
         const accuracyCounts = { perfect: 0, good: 0, off: 0 }
         ribbon.points.forEach((p) => accuracyCounts[p.accuracy]++)
         const dominantAccuracy =
@@ -240,14 +232,23 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
               ? "good"
               : "off"
 
+        // Pitch feedback colors (using design system vars)
         const colors = {
           perfect: {
-            fill: "oklch(0.75 0.15 145 / 0.85)",
-            stroke: "oklch(0.78 0.16 145)",
-            glow: "oklch(0.78 0.16 145 / 0.3)",
+            fill: "oklch(0.55 0.12 145 / 0.80)",
+            stroke: "oklch(0.60 0.14 145)",
+            glow: "oklch(0.55 0.12 145 / 0.35)",
           },
-          good: { fill: "oklch(0.70 0.13 80 / 0.85)", stroke: "oklch(0.74 0.15 80)", glow: "oklch(0.74 0.15 80 / 0.3)" },
-          off: { fill: "oklch(0.65 0.15 25 / 0.85)", stroke: "oklch(0.68 0.17 25)", glow: "oklch(0.68 0.17 25 / 0.3)" },
+          good: {
+            fill: "oklch(0.60 0.08 85 / 0.80)",
+            stroke: "oklch(0.65 0.10 85)",
+            glow: "oklch(0.60 0.08 85 / 0.35)",
+          },
+          off: {
+            fill: "oklch(0.50 0.10 25 / 0.80)",
+            stroke: "oklch(0.55 0.12 25)",
+            glow: "oklch(0.50 0.10 25 / 0.35)",
+          },
         }
         const color = colors[dominantAccuracy]
 
@@ -282,7 +283,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         ctx.closePath()
         ctx.shadowColor = color.glow
-        ctx.shadowBlur = 8
+        ctx.shadowBlur = 10
         ctx.fillStyle = color.fill
         ctx.fill()
         ctx.shadowBlur = 0
@@ -292,7 +293,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
         // Center pitch deviation line
         ctx.beginPath()
-        ctx.strokeStyle = "oklch(0.78 0.13 145)"
+        ctx.strokeStyle = "oklch(0.55 0.12 145)"
         ctx.lineWidth = 1.5
         ribbon.points.forEach((p, i) => {
           const centsOffset = (p.cents / 50) * (ribbonHeight / 2)
@@ -304,7 +305,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
       })
     }
 
-    // Current pitch indicator
+    // Current pitch indicator - uses primary orange
     if (currentPitch && isRecording) {
       const noteIdx = ALL_NOTES.indexOf(currentPitch.note)
       if (noteIdx !== -1) {
@@ -312,7 +313,7 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
         if (semitone >= minSemitone && semitone <= maxSemitone) {
           const y = (maxSemitone - semitone) * noteHeight + noteHeight / 2
 
-          ctx.strokeStyle = "oklch(0.75 0.15 145 / 0.4)"
+          ctx.strokeStyle = "oklch(0.72 0.18 45 / 0.35)"
           ctx.lineWidth = 1
           ctx.setLineDash([4, 4])
           ctx.beginPath()
@@ -323,23 +324,30 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
 
           ctx.beginPath()
           ctx.arc(width - 12, y, 8, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.75 0.15 145)"
+          ctx.shadowColor = "oklch(0.72 0.18 45 / 0.45)"
+          ctx.shadowBlur = 10
+          ctx.fillStyle = "oklch(0.72 0.18 45)"
           ctx.fill()
+          ctx.shadowBlur = 0
+
           ctx.beginPath()
           ctx.arc(width - 12, y, 4, 0, Math.PI * 2)
-          ctx.fillStyle = "oklch(0.95 0.05 145)"
+          ctx.fillStyle = "oklch(0.92 0.01 90)"
           ctx.fill()
         }
       }
     }
 
-    // Recording indicator
+    // Recording indicator - red with pulse
     if (isRecording) {
       const pulse = (Math.sin(Date.now() / 200) + 1) / 2
       ctx.beginPath()
       ctx.arc(width - 12, 12, 4 + pulse * 2, 0, Math.PI * 2)
-      ctx.fillStyle = `oklch(0.65 0.15 25 / ${0.7 + pulse * 0.3})`
+      ctx.shadowColor = "oklch(0.50 0.10 25 / 0.45)"
+      ctx.shadowBlur = 8 * pulse
+      ctx.fillStyle = `oklch(0.50 0.10 25 / ${0.7 + pulse * 0.3})`
       ctx.fill()
+      ctx.shadowBlur = 0
     }
   }, [pitchHistory, currentPitch, isRecording])
 
@@ -364,5 +372,5 @@ export function PitchVisualizer({ pitchHistory, currentPitch, isRecording }: Pit
     }
   }, [isRecording, draw])
 
-  return <canvas ref={canvasRef} className="w-full rounded-xl" style={{ height: "320px" }} />
+  return <canvas ref={canvasRef} className="w-full h-full rounded-2xl" />
 }

@@ -94,7 +94,7 @@ export function TrainingMode({
               onClick={() => setMaxDifficulty("easy")}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 maxDifficulty === "easy"
-                  ? "bg-pitch-perfect text-background"
+                  ? "bg-foreground text-background"
                   : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               }`}
             >
@@ -104,7 +104,7 @@ export function TrainingMode({
               onClick={() => setMaxDifficulty("medium")}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 maxDifficulty === "medium"
-                  ? "bg-pitch-good text-background"
+                  ? "bg-foreground text-background"
                   : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               }`}
             >
@@ -114,7 +114,7 @@ export function TrainingMode({
               onClick={() => setMaxDifficulty("hard")}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 maxDifficulty === "hard"
-                  ? "bg-pitch-off text-background"
+                  ? "bg-foreground text-background"
                   : "bg-secondary text-muted-foreground hover:bg-secondary/80"
               }`}
             >

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useSessionLibrary } from "@/hooks/use-session-library"
 import { getSessionAudio } from "@/lib/audio-storage"
 import {
@@ -15,7 +15,9 @@ import { WaveformDisplay } from "@/components/waveform-display"
 import { InteractiveWaveform } from "@/components/interactive-waveform"
 import { Button } from "@/components/ui/button"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Upload, Edit3, ChevronDown, ChevronUp } from "lucide-react"
+import { Download, Play, Pause, RotateCcw, Sparkles, Mic, Square, Upload, Edit3, ChevronDown, ChevronUp, Layers, Radio, FolderOpen } from "lucide-react"
+
+type StudioMode = "select" | "quick" | "multitrack"
 
 function StudioContent() {
   const searchParams = useSearchParams()
@@ -54,6 +56,19 @@ function StudioContent() {
   // File upload
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Studio mode - show selector initially unless we have a session or source param
+  const [studioMode, setStudioMode] = useState<StudioMode>("select")
+
+  // Real-time preview with Web Audio API
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null)
+  const compressorRef = useRef<DynamicsCompressorNode | null>(null)
+  const lowShelfRef = useRef<BiquadFilterNode | null>(null)
+  const midPeakRef = useRef<BiquadFilterNode | null>(null)
+  const highShelfRef = useRef<BiquadFilterNode | null>(null)
+  const gainNodeRef = useRef<GainNode | null>(null)
+  const [previewEnabled, setPreviewEnabled] = useState(true)
+
   // Auto-collapse sections when audio is loaded
   useEffect(() => {
     if (originalAudio && !isLoadingAudio && !audioError) {
@@ -66,9 +81,18 @@ function StudioContent() {
     document.title = "Vocal Coach - Studio"
     trackPageView("Vocal Coach - Studio", "/edit/studio")
 
+    // Check if we have a session param - go straight to quick mode
+    const sessionParam = searchParams.get("session")
+    if (sessionParam) {
+      setStudioMode("quick")
+      setSelectedSessionId(sessionParam)
+      return
+    }
+
     // Load karaoke audio from localStorage if source=karaoke
     const source = searchParams.get("source")
     if (source === "karaoke") {
+      setStudioMode("quick")
       const karaokeData = localStorage.getItem("karaoke-temp-audio")
       if (karaokeData) {
         console.log("[Studio] Loading karaoke audio from localStorage")
@@ -160,6 +184,106 @@ function StudioContent() {
   // Get sessions with audio
   const sessionsWithAudio = sessions.filter(s => s.hasAudio)
 
+  // Setup real-time preview processing chain
+  const setupPreviewChain = (audioEl: HTMLAudioElement) => {
+    try {
+      if (sourceNodeRef.current) return // Already set up
+
+      console.log("[Preview] Setting up audio processing chain...")
+      const ctx = new AudioContext()
+      audioContextRef.current = ctx
+
+      // Create source from audio element
+      const source = ctx.createMediaElementSource(audioEl)
+      sourceNodeRef.current = source
+
+      // Create processing nodes
+      const compressor = ctx.createDynamicsCompressor()
+      compressorRef.current = compressor
+
+      const lowShelf = ctx.createBiquadFilter()
+      lowShelf.type = "lowshelf"
+      lowShelf.frequency.value = 200
+      lowShelfRef.current = lowShelf
+
+      const midPeak = ctx.createBiquadFilter()
+      midPeak.type = "peaking"
+      midPeak.frequency.value = 1000
+      midPeak.Q.value = 1
+      midPeakRef.current = midPeak
+
+      const highShelf = ctx.createBiquadFilter()
+      highShelf.type = "highshelf"
+      highShelf.frequency.value = 3000
+      highShelfRef.current = highShelf
+
+      const gainNode = ctx.createGain()
+      gainNodeRef.current = gainNode
+
+      // Connect the chain: source -> compressor -> lowShelf -> midPeak -> highShelf -> gain -> destination
+      source.connect(compressor)
+      compressor.connect(lowShelf)
+      lowShelf.connect(midPeak)
+      midPeak.connect(highShelf)
+      highShelf.connect(gainNode)
+      gainNode.connect(ctx.destination)
+
+      // Apply initial settings
+      updatePreviewSettings()
+      console.log("[Preview] Chain setup complete")
+    } catch (error) {
+      console.error("[Preview] Failed to setup chain:", error)
+    }
+  }
+
+  // Update preview processing settings in real-time
+  const updatePreviewSettings = () => {
+    if (!compressorRef.current) return
+
+    const comp = compressorRef.current
+    comp.threshold.value = settings.threshold
+    comp.knee.value = settings.knee
+    comp.ratio.value = settings.ratio
+    comp.attack.value = settings.attack
+    comp.release.value = settings.release
+
+    if (lowShelfRef.current) {
+      lowShelfRef.current.gain.value = settings.lowShelfGain
+    }
+    if (midPeakRef.current) {
+      midPeakRef.current.gain.value = settings.midGain
+    }
+    if (highShelfRef.current) {
+      highShelfRef.current.gain.value = settings.highShelfGain
+    }
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = settings.outputGain
+    }
+  }
+
+  // Update preview settings when they change
+  useEffect(() => {
+    updatePreviewSettings()
+  }, [settings])
+
+  // Reset audio context when preview is toggled (to properly connect/disconnect processing)
+  useEffect(() => {
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+      sourceNodeRef.current = null
+
+      // Recreate audio element since MediaElementSourceNode takes it over
+      if (originalAudio && originalAudioEl) {
+        const audioURL = URL.createObjectURL(originalAudio)
+        const audio = new Audio(audioURL)
+        audio.preload = "auto"
+        audio.load()
+        setOriginalAudioEl(audio)
+      }
+    }
+  }, [previewEnabled])
+
   const handlePresetChange = (presetKey: string) => {
     setSelectedPreset(presetKey)
 
@@ -221,25 +345,48 @@ function StudioContent() {
   }
 
   const togglePlayOriginal = async () => {
-    if (!originalAudioEl) return
+    if (!originalAudioEl) {
+      console.log("[Play] No audio element")
+      return
+    }
 
     if (isPlayingOriginal) {
+      console.log("[Play] Pausing...")
       originalAudioEl.pause()
       setIsPlayingOriginal(false)
     } else {
       try {
-        // Ensure audio is loaded before playing
-        if (originalAudioEl.readyState < 3) {
-          console.log("Audio not ready, loading...")
-          await originalAudioEl.load()
+        console.log("[Play] Starting playback, preview:", previewEnabled)
+
+        // Setup real-time preview chain if enabled
+        if (previewEnabled && !sourceNodeRef.current) {
+          setupPreviewChain(originalAudioEl)
         }
 
-        await originalAudioEl.play()
+        // Resume AudioContext if suspended (browser autoplay policy)
+        if (audioContextRef.current?.state === "suspended") {
+          console.log("[Play] Resuming suspended AudioContext...")
+          await audioContextRef.current.resume()
+        }
+
+        // Reset to beginning if at end
+        if (originalAudioEl.ended || originalAudioEl.currentTime >= originalAudioEl.duration) {
+          originalAudioEl.currentTime = 0
+        }
+
+        console.log("[Play] Playing audio, readyState:", originalAudioEl.readyState)
+        const playPromise = originalAudioEl.play()
+        if (playPromise) {
+          await playPromise
+        }
         setIsPlayingOriginal(true)
 
-        originalAudioEl.onended = () => setIsPlayingOriginal(false)
+        originalAudioEl.onended = () => {
+          console.log("[Play] Playback ended")
+          setIsPlayingOriginal(false)
+        }
       } catch (error) {
-        console.error("Failed to play audio:", error)
+        console.error("[Play] Failed to play audio:", error)
         setIsPlayingOriginal(false)
       }
     }
@@ -282,6 +429,13 @@ function StudioContent() {
     console.log("[Studio] Audio edited, updating original audio...")
     setOriginalAudio(editedBlob)
 
+    // Reset audio context when audio changes (need new source node)
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+      sourceNodeRef.current = null
+    }
+
     // Regenerate waveform
     const waveform = await getWaveformData(editedBlob)
     setOriginalWaveform(waveform)
@@ -303,8 +457,28 @@ function StudioContent() {
 
   const startStudioRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" })
+      // Request high quality audio
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: { ideal: 48000 },
+          channelCount: { ideal: 2 },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
+      })
+
+      // Try to use best available codec
+      let mimeType = "audio/webm;codecs=opus"
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/webm"
+      }
+      console.log("[Studio] Recording with mimeType:", mimeType)
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 128000, // 128 kbps for good quality
+      })
 
       audioChunksRef.current = []
 
@@ -456,21 +630,127 @@ function StudioContent() {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
+  const router = useRouter()
+
+  // Mode selector screen
+  if (studioMode === "select") {
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center pt-8">
+          <h1 className="text-3xl font-bold mb-2">Studio</h1>
+          <p className="text-muted-foreground">
+            Co chcesz dzisiaj stworzyc?
+          </p>
+        </div>
+
+        {/* Mode Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+          {/* Quick Recording */}
+          <button
+            onClick={() => setStudioMode("quick")}
+            className="group rounded-2xl border-2 border-border bg-card p-6 text-left hover:border-primary/50 hover:bg-accent/30 transition-all"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+              <Radio className="w-7 h-7 text-primary" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Szybkie nagranie</h3>
+            <p className="text-sm text-muted-foreground">
+              Nagraj, edytuj i przetworz pojedyncza sciezke audio
+            </p>
+          </button>
+
+          {/* Multi-track DAW */}
+          <button
+            onClick={() => router.push("/edit/projects")}
+            className="group rounded-2xl border-2 border-border bg-card p-6 text-left hover:border-primary/50 hover:bg-accent/30 transition-all"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-4 group-hover:bg-amber-500/20 transition-colors">
+              <Layers className="w-7 h-7 text-amber-500" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Multi-track DAW</h3>
+            <p className="text-sm text-muted-foreground">
+              Profesjonalny edytor wielosciezkowy z szablonami (podcast, muzyka)
+            </p>
+          </button>
+
+          {/* Load from Library */}
+          <button
+            onClick={() => {
+              setStudioMode("quick")
+              setShowSessionSelector(true)
+              setShowLoadControls(false)
+            }}
+            className="group rounded-2xl border-2 border-border bg-card p-6 text-left hover:border-primary/50 hover:bg-accent/30 transition-all"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 group-hover:bg-blue-500/20 transition-colors">
+              <FolderOpen className="w-7 h-7 text-blue-500" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Wczytaj nagranie</h3>
+            <p className="text-sm text-muted-foreground">
+              Otworz i edytuj wczesniej zapisane nagranie z biblioteki
+            </p>
+          </button>
+        </div>
+
+        {/* Recent sessions shortcut */}
+        {sessionsWithAudio.length > 0 && (
+          <div className="rounded-2xl border border-border/50 bg-card p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">OSTATNIE NAGRANIA</h3>
+            <div className="space-y-2">
+              {sessionsWithAudio.slice(0, 3).map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => {
+                    setStudioMode("quick")
+                    setSelectedSessionId(session.id)
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-accent/50 transition-colors text-left"
+                >
+                  <div>
+                    <div className="font-medium">{session.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(session.date).toLocaleDateString("pl-PL")}
+                    </div>
+                  </div>
+                  <Play className="w-4 h-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-pitch-perfect" />
-          Recording Studio
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Enhance your recordings with professional audio processing
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-primary" />
+            Szybkie nagranie
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Nagraj, edytuj i przetworz audio
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setStudioMode("select")
+            setOriginalAudio(null)
+            setProcessedAudio(null)
+            setSelectedSessionId(null)
+          }}
+        >
+          Zmien tryb
+        </Button>
       </div>
 
-      {/* Recording Controls - Collapsible */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {/* Recording Controls - Collapsible - warm card */}
+      <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm overflow-hidden">
         <div
           className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
           onClick={() => setShowLoadControls(!showLoadControls)}
@@ -543,7 +823,7 @@ function StudioContent() {
 
       {/* Select Recording - Collapsible - only show if there are sessions with audio */}
       {sessionsWithAudio.length > 0 && (
-        <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm overflow-hidden">
           <div
             className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors"
             onClick={() => setShowSessionSelector(!showSessionSelector)}
@@ -581,17 +861,17 @@ function StudioContent() {
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Loading state - warm styling */}
       {isLoadingAudio && (
-        <div className="bg-card rounded-xl p-8 border border-border text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-pitch-perfect border-t-transparent rounded-full mx-auto mb-3" />
+        <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-8 text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
           <p className="text-muted-foreground">Ladowanie audio...</p>
         </div>
       )}
 
-      {/* Error state */}
+      {/* Error state - warm destructive styling */}
       {audioError && (
-        <div className="bg-destructive/10 border border-destructive/50 rounded-xl p-6 text-center">
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-6 text-center">
           <p className="text-destructive font-semibold mb-2">Blad</p>
           <p className="text-sm text-muted-foreground">{audioError}</p>
           <p className="text-xs text-muted-foreground mt-4">
@@ -619,25 +899,37 @@ function StudioContent() {
               </Button>
             </div>
 
-            {/* Interactive Waveform (Editing Mode) */}
+            {/* Interactive Waveform (Editing Mode) - warm card */}
             {editingMode ? (
-              <div className="bg-card rounded-xl p-4 border border-border">
+              <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-5">
                 <InteractiveWaveform
                   audioBlob={originalAudio}
                   onAudioEdited={handleAudioEdited}
-                  color="#3b82f6"
+                  color="#f97316"
                   height={150}
                 />
               </div>
             ) : (
-              /* Simple Waveform View */
+              /* Simple Waveform View - warm cards */
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-card rounded-xl p-4 border border-border space-y-3">
+                <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">Oryginal</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm">Podglad na zywo</h3>
+                      <button
+                        onClick={() => setPreviewEnabled(!previewEnabled)}
+                        className={`text-xs px-2 py-0.5 rounded-full transition-colors ${
+                          previewEnabled
+                            ? "bg-primary/20 text-primary"
+                            : "bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        {previewEnabled ? "Efekty ON" : "Efekty OFF"}
+                      </button>
+                    </div>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant={previewEnabled ? "default" : "outline"}
                       onClick={togglePlayOriginal}
                       className="gap-2"
                     >
@@ -648,15 +940,20 @@ function StudioContent() {
                   {originalWaveform && (
                     <WaveformDisplay
                       waveformData={originalWaveform}
-                      color="#6b7280"
+                      color={previewEnabled ? "#f97316" : "#6b7280"}
                       height={100}
                     />
                   )}
+                  <p className="text-xs text-muted-foreground">
+                    {previewEnabled
+                      ? "Slyszysz efekty w czasie rzeczywistym - zmieniaj ustawienia i sluchaj!"
+                      : "Slyszysz oryginal bez efektow"}
+                  </p>
                 </div>
 
-                <div className="bg-card rounded-xl p-4 border border-border space-y-3">
+                <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm">Przetworzony</h3>
+                    <h3 className="font-semibold text-sm">Renderowany</h3>
                     {processedAudio && (
                       <Button
                         size="sm"
@@ -672,7 +969,7 @@ function StudioContent() {
                   {processedWaveform ? (
                     <WaveformDisplay
                       waveformData={processedWaveform}
-                      color="#3b82f6"
+                      color="#22c55e"
                       height={100}
                     />
                   ) : (
@@ -687,16 +984,16 @@ function StudioContent() {
             )}
           </div>
 
-          {/* Presets */}
-          <div className="bg-card rounded-xl p-4 border border-border">
+          {/* Presets - warm card */}
+          <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-5">
             <h3 className="font-semibold mb-3">Presety</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
               <button
                 onClick={() => handlePresetChange("custom")}
-                className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
+                className={`px-3 py-2 text-sm font-medium rounded-xl border transition-all ${
                   selectedPreset === "custom"
-                    ? "bg-pitch-perfect/20 border-pitch-perfect text-pitch-perfect"
-                    : "border-border hover:border-pitch-perfect/50"
+                    ? "bg-primary/20 border-primary text-primary"
+                    : "border-border/50 hover:border-primary/50"
                 }`}
               >
                 Wlasne
@@ -705,10 +1002,10 @@ function StudioContent() {
                 <button
                   key={key}
                   onClick={() => handlePresetChange(key)}
-                  className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
+                  className={`px-3 py-2 text-sm font-medium rounded-xl border transition-all ${
                     selectedPreset === key
-                      ? "bg-pitch-perfect/20 border-pitch-perfect text-pitch-perfect"
-                      : "border-border hover:border-pitch-perfect/50"
+                      ? "bg-primary/20 border-primary text-primary"
+                      : "border-border/50 hover:border-primary/50"
                   }`}
                   title={preset.description}
                 >
@@ -723,8 +1020,8 @@ function StudioContent() {
             )}
           </div>
 
-          {/* Settings */}
-          <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+          {/* Settings - warm card */}
+          <div className="rounded-2xl border border-border/50 bg-gradient-to-b from-card to-card/95 shadow-sm p-5 space-y-4">
             <h3 className="font-semibold">Ustawienia</h3>
 
             {/* Compressor */}

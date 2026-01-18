@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Home, Radio, BookOpen, Sparkles, Library, Music2 } from "lucide-react"
+import { Home, Mic, GraduationCap, Library, Music2, Settings, Guitar } from "lucide-react"
 
 interface MobileNavigationProps {
   pathname: string
@@ -13,90 +13,64 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
     return pathname.startsWith(path)
   }
 
+  const navItems = [
+    { href: "/", icon: Home, label: "Home" },
+    { href: "/record/live", icon: Mic, label: "Practice" },
+    { href: "/train", icon: GraduationCap, label: "Learn" },
+    { href: "/guitar", icon: Guitar, label: "Guitar" },
+    { href: "/library", icon: Library, label: "Library" },
+  ]
+
   return (
-    <header className="sticky top-0 z-10 bg-background/95 backdrop-blur-lg border-b border-border">
-      <div className="max-w-lg mx-auto">
-        {/* Logo and Title */}
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-pitch-perfect flex items-center justify-center shadow-sm">
-              <Music2 className="w-5 h-5 text-background" />
+    <>
+      {/* Top Header - Compact */}
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Music2 className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-foreground">Vocal Coach</h1>
-              <a
-                href="https://instagram.com/arvindspiewa"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                @arvindspiewa
-              </a>
+              <h1 className="font-bold text-base text-foreground">Vocal Coach</h1>
+              <p className="text-xs text-muted-foreground">Your daily voice studio</p>
             </div>
           </div>
+          <Link
+            href="/settings"
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              isActive("/settings")
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+          </Link>
         </div>
+      </header>
 
-        {/* Tab Navigation - 5 tabs */}
-        <div className="px-2 pb-2">
-          <div className="flex bg-secondary/50 rounded-xl p-1 gap-1">
-            <Link
-              href="/"
-              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                isActive("/") && pathname === "/"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Home className="w-4 h-4" />
-              <span>Start</span>
-            </Link>
-            <Link
-              href="/record"
-              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                isActive("/record")
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Radio className="w-4 h-4" />
-              <span>Nagrywaj</span>
-            </Link>
-            <Link
-              href="/train"
-              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                isActive("/train")
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Trenuj</span>
-            </Link>
-            <Link
-              href="/edit"
-              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                isActive("/edit")
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Edytuj</span>
-            </Link>
-            <Link
-              href="/library"
-              className={`flex-1 flex flex-col items-center gap-0.5 px-2 py-2 text-xs font-medium rounded-lg transition-all ${
-                isActive("/library")
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Library className="w-4 h-4" />
-              <span>Biblioteka</span>
-            </Link>
-          </div>
+      {/* Floating Pill Navigation - Bottom */}
+      <nav className="fixed bottom-4 left-4 right-4 z-50">
+        <div className="mx-auto max-w-md bg-card/90 backdrop-blur-xl rounded-full border border-border/50 shadow-[0_8px_32px_-8px] shadow-black/50 p-1.5 flex items-center justify-around">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex-1 flex flex-col items-center gap-0.5 px-3 py-2 rounded-full transition-all duration-200 ${
+                  active
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className={`w-5 h-5 ${active ? "text-primary" : ""}`} />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
-      </div>
-    </header>
+      </nav>
+    </>
   )
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import WaveSurfer from "wavesurfer.js"
 import RegionsPlugin, { type Region } from "wavesurfer.js/dist/plugins/regions"
-import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline"
+// Timeline plugin removed - was causing performance issues
 import { Button } from "@/components/ui/button"
 import { Play, Pause, Trash2, Undo, Redo, ZoomIn, ZoomOut, Scissors } from "lucide-react"
 
@@ -47,37 +47,25 @@ export function InteractiveWaveform({
   useEffect(() => {
     if (!containerRef.current) return
 
+    console.log("[WaveSurfer] Initializing...")
     isMountedRef.current = true
 
     // Create regions plugin
     const regionsPlugin = RegionsPlugin.create()
     regionsPluginRef.current = regionsPlugin
 
-    // Create timeline plugin
-    const timelinePlugin = TimelinePlugin.create({
-      height: 20,
-      insertPosition: "beforebegin",
-      timeInterval: 0.5,
-      primaryLabelInterval: 5,
-      secondaryLabelInterval: 1,
-      style: {
-        fontSize: "10px",
-        color: "#6b7280",
-      },
-    })
-
-    // Initialize WaveSurfer
+    // Initialize WaveSurfer (without timeline plugin to avoid performance issues)
     const wavesurfer = WaveSurfer.create({
       container: containerRef.current,
       waveColor: color,
-      progressColor: "#1e40af",
-      cursorColor: "#ef4444",
+      progressColor: "#ea580c",
+      cursorColor: "#dc2626",
       barWidth: 2,
       barRadius: 2,
       cursorWidth: 2,
       height: height,
       barGap: 1,
-      plugins: [regionsPlugin, timelinePlugin],
+      plugins: [regionsPlugin],
       normalize: true,
       interact: true,
     })
@@ -90,10 +78,15 @@ export function InteractiveWaveform({
 
     // Event handlers
     wavesurfer.on("ready", () => {
+      console.log("[WaveSurfer] Ready")
       if (isMountedRef.current) {
         setIsReady(true)
         setDuration(wavesurfer.getDuration())
       }
+    })
+
+    wavesurfer.on("error", (err) => {
+      console.error("[WaveSurfer] Error:", err)
     })
 
     wavesurfer.on("play", () => {
@@ -135,6 +128,7 @@ export function InteractiveWaveform({
 
     // Cleanup
     return () => {
+      console.log("[WaveSurfer] Cleanup starting...")
       isMountedRef.current = false
 
       // Safely destroy wavesurfer - handle async destruction
@@ -150,8 +144,9 @@ export function InteractiveWaveform({
         ;(async () => {
           try {
             await wavesurfer.destroy()
+            console.log("[WaveSurfer] Destroyed successfully")
           } catch (error) {
-            // Silently ignore all errors including AbortError
+            console.log("[WaveSurfer] Destroy error (ignored):", error)
           }
         })()
       }
@@ -214,6 +209,8 @@ export function InteractiveWaveform({
     const audioBuffer = wavesurferRef.current.getDecodedData()
     if (!audioBuffer) return
 
+    console.log("[Edit] Original audio - sampleRate:", audioBuffer.sampleRate, "channels:", audioBuffer.numberOfChannels, "duration:", audioBuffer.duration)
+
     // Calculate total duration after deletions
     let totalDeletedDuration = 0
     for (const region of regions) {
@@ -225,9 +222,11 @@ export function InteractiveWaveform({
     const numberOfChannels = audioBuffer.numberOfChannels
     const newLength = Math.floor(newDuration * sampleRate)
 
-    // Create new audio buffer
-    const audioContext = new AudioContext()
-    const newBuffer = audioContext.createBuffer(numberOfChannels, newLength, sampleRate)
+    console.log("[Edit] New audio will be - sampleRate:", sampleRate, "channels:", numberOfChannels, "duration:", newDuration, "length:", newLength)
+
+    // Create offline audio context with matching sample rate
+    const offlineContext = new OfflineAudioContext(numberOfChannels, newLength, sampleRate)
+    const newBuffer = offlineContext.createBuffer(numberOfChannels, newLength, sampleRate)
 
     // Copy audio data, skipping deleted regions
     for (let channel = 0; channel < numberOfChannels; channel++) {
@@ -263,7 +262,9 @@ export function InteractiveWaveform({
     }
 
     // Convert AudioBuffer to WAV Blob
+    console.log("[Edit] Converting to WAV - buffer sampleRate:", newBuffer.sampleRate, "length:", newBuffer.length)
     const wavBlob = await audioBufferToWavBlob(newBuffer)
+    console.log("[Edit] WAV blob created, size:", wavBlob.size, "type:", wavBlob.type)
     onAudioEdited(wavBlob)
 
   }, [onAudioEdited])

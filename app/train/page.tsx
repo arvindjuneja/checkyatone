@@ -14,8 +14,9 @@ export default function TrainPage() {
   }, [])
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
-      <div className="bg-card rounded-xl p-4 border border-border">
+    <div className="space-y-5 max-w-4xl mx-auto pb-24">
+      {/* Header card */}
+      <div className="rounded-3xl bg-card/80 backdrop-blur-sm border border-white/5 shadow-[0_8px_32px_-12px] shadow-black/30 p-5">
         <h2 className="text-xl font-bold mb-2">Tryb treningowy</h2>
         <p className="text-sm text-muted-foreground">
           Wybierz sposob na cwiczenie sluchu i precyzji wokalnej
@@ -26,10 +27,10 @@ export default function TrainPage() {
         {/* Exercises Option */}
         <button
           onClick={() => router.push("/train/exercises")}
-          className="group bg-card hover:bg-accent transition-colors rounded-xl p-5 border border-border text-left"
+          className="card-lift group rounded-3xl border border-white/5 bg-gradient-to-br from-pitch-perfect/10 to-card/80 hover:border-pitch-perfect/30 p-5 text-left"
         >
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-pitch-perfect/10 flex items-center justify-center shrink-0 group-hover:bg-pitch-perfect/20 transition-colors">
+            <div className="w-12 h-12 rounded-2xl bg-pitch-perfect/15 flex items-center justify-center shrink-0 group-hover:bg-pitch-perfect/25 transition-colors shadow-lg shadow-pitch-perfect/10">
               <BookOpen className="w-6 h-6 text-pitch-perfect" />
             </div>
             <div className="flex-1">
@@ -44,11 +45,11 @@ export default function TrainPage() {
         {/* Hit the Note! Game Option */}
         <button
           onClick={() => router.push("/train/game")}
-          className="group bg-card hover:bg-accent transition-colors rounded-xl p-5 border border-border text-left"
+          className="card-lift group rounded-3xl border border-white/5 bg-gradient-to-br from-pitch-good/10 to-card/80 hover:border-pitch-good/30 p-5 text-left"
         >
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0 group-hover:bg-violet-500/20 transition-colors">
-              <Gamepad2 className="w-6 h-6 text-violet-500" />
+            <div className="w-12 h-12 rounded-2xl bg-pitch-good/15 flex items-center justify-center shrink-0 group-hover:bg-pitch-good/25 transition-colors shadow-lg shadow-pitch-good/10">
+              <Gamepad2 className="w-6 h-6 text-pitch-good" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-base mb-1">Hit the Note!</h3>
@@ -62,11 +63,11 @@ export default function TrainPage() {
         {/* Sing Along Option */}
         <button
           onClick={() => router.push("/train/singalong")}
-          className="group bg-card hover:bg-accent transition-colors rounded-xl p-5 border border-border text-left"
+          className="card-lift group rounded-3xl border border-white/5 bg-gradient-to-br from-primary/10 to-card/80 hover:border-primary/30 p-5 text-left"
         >
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:bg-blue-500/20 transition-colors">
-              <Music className="w-6 h-6 text-blue-500" />
+            <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0 group-hover:bg-primary/25 transition-colors shadow-lg shadow-primary/10">
+              <Music className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-base mb-1">Spiewaj z piosenka</h3>

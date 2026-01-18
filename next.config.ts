@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  // Disable strict mode to prevent double effect invocation that causes WaveSurfer issues
+  reactStrictMode: false,
 };
 
 export default nextConfig;

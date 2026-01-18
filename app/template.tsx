@@ -43,43 +43,10 @@ export default function Template({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 px-4 py-4 max-w-lg mx-auto w-full">
+      {/* Main Content - with bottom padding for floating nav */}
+      <div className="flex-1 px-4 py-4 pb-24 max-w-lg mx-auto w-full">
         {children}
       </div>
-
-      {/* Footer */}
-      <footer className="bg-card border-t border-border px-4 py-6 mt-8">
-        <div className="max-w-lg mx-auto">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="flex items-center gap-4">
-              <a
-                href="https://instagram.com/ajuneja"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                Instagram
-              </a>
-              <span className="text-muted-foreground">•</span>
-              <a
-                href="https://www.linkedin.com/in/arvindjuneja/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm"
-              >
-                LinkedIn
-              </a>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Arvind Juneja. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Bottom safe area for mobile */}
-      <div className="h-safe-area-inset-bottom" />
     </main>
   )
 }

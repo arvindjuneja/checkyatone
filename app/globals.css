@@ -3,58 +3,104 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Dark theme for vocal analysis app - music production style */
-:root {
-  --background: oklch(0.13 0.01 270);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.16 0.01 270);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.16 0.01 270);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.72 0.13 45);
-  --primary-foreground: oklch(0.13 0.01 270);
-  --secondary: oklch(0.22 0.01 270);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.01 270);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.24 0.01 270);
-  --accent-foreground: oklch(0.13 0.01 270);
-  --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.28 0.01 270);
-  --input: oklch(0.22 0.01 270);
-  --ring: oklch(0.75 0.18 180);
-  --chart-1: oklch(0.75 0.18 145);
-  --chart-2: oklch(0.7 0.15 60);
-  --chart-3: oklch(0.6 0.22 25);
-  --chart-4: oklch(0.75 0.18 180);
-  --chart-5: oklch(0.7 0.15 330);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.16 0.01 270);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.18 180);
-  --sidebar-primary-foreground: oklch(0.13 0.01 270);
-  --sidebar-accent: oklch(0.22 0.01 270);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.28 0.01 270);
-  --sidebar-ring: oklch(0.75 0.18 180);
+/*
+  VOCAL COACH DESIGN SYSTEM
+  ========================
+  Philosophy: "Your Daily Voice Studio"
+  A cozy practice room, not a complex DAW. Warmth over clinical.
 
-  /* Custom colors for pitch accuracy */
-  --pitch-perfect: oklch(0.75 0.15 145); /* Green for perfect hits */
-  --pitch-good: oklch(0.70 0.13 80);     /* Yellow-green for good */
-  --pitch-off: oklch(0.65 0.15 25);      /* Red-orange for off */
+  Color rules:
+  - Orange = interactive (buttons, links, focus)
+  - Gold/Yellow = achievements, streaks
+  - Green/Yellow/Red = pitch feedback ONLY
+  - Everything else = graphite grayscale
+*/
+
+:root {
+  /* Backgrounds - True graphite (no blue/green tint) */
+  --background: oklch(0.12 0.005 0);        /* Near black, neutral */
+  --foreground: oklch(0.92 0.01 90);        /* Warm off-white */
+  --card: oklch(0.16 0.005 0);              /* Elevated surface */
+  --card-hover: oklch(0.18 0.005 0);
+  --card-foreground: oklch(0.92 0.01 90);
+  --popover: oklch(0.16 0.005 0);
+  --popover-foreground: oklch(0.92 0.01 90);
+
+  /* Primary - Warm Orange (THE accent) */
+  --primary: oklch(0.72 0.18 45);           /* Vibrant warm orange */
+  --primary-muted: oklch(0.55 0.12 45);     /* Muted for subtle use */
+  --primary-foreground: oklch(0.98 0 0);
+
+  /* Secondary/Borders */
+  --secondary: oklch(0.20 0.005 0);
+  --secondary-foreground: oklch(0.90 0.01 90);
+
+  /* Muted */
+  --muted: oklch(0.18 0.005 0);
+  --muted-foreground: oklch(0.55 0.01 90);  /* Warm gray */
+
+  /* Accent - Hover states */
+  --accent: oklch(0.20 0.005 0);
+  --accent-foreground: oklch(0.92 0.01 90);
+
+  /* Accent colors - Warm yellows/golds */
+  --accent-warm: oklch(0.75 0.10 85);       /* Soft yellow */
+  --accent-gold: oklch(0.70 0.12 75);       /* Gold for achievements */
+
+  /* Destructive - Muted red */
+  --destructive: oklch(0.50 0.10 25);
+  --destructive-foreground: oklch(0.98 0 0);
+
+  /* Borders */
+  --border: oklch(0.22 0.005 0);
+  --input: oklch(0.20 0.005 0);
+  --ring: oklch(0.72 0.18 45);
+
+  /* Charts */
+  --chart-1: oklch(0.72 0.18 45);
+  --chart-2: oklch(0.70 0.12 75);
+  --chart-3: oklch(0.55 0.12 145);
+  --chart-4: oklch(0.60 0.08 85);
+  --chart-5: oklch(0.50 0.10 25);
+
+  --radius: 0.75rem;
+
+  /* Sidebar - same as background, seamless */
+  --sidebar: oklch(0.14 0.005 0);
+  --sidebar-foreground: oklch(0.92 0.01 90);
+  --sidebar-primary: oklch(0.72 0.18 45);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.20 0.005 0);
+  --sidebar-accent-foreground: oklch(0.92 0.01 90);
+  --sidebar-border: oklch(0.22 0.005 0);
+  --sidebar-ring: oklch(0.72 0.18 45);
+
+  /*
+    PITCH ACCURACY COLORS
+    These are FUNCTIONAL colors for pitch feedback ONLY.
+    Green = on pitch, Yellow = close, Red = off
+  */
+  --pitch-perfect: oklch(0.55 0.12 145);    /* Muted green */
+  --pitch-good: oklch(0.60 0.08 85);        /* Muted warm yellow */
+  --pitch-off: oklch(0.50 0.10 25);         /* Muted red */
+
+  /* Animation */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
 }
 
 @theme inline {
-  --font-sans: "Geist", "Geist Fallback";
-  --font-mono: "Geist Mono", "Geist Mono Fallback";
+  --font-sans: "Inter", "Inter Fallback", system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-muted: var(--primary-muted);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -62,6 +108,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-warm: var(--accent-warm);
+  --color-accent-gold: var(--accent-gold);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -95,16 +143,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-/* Desktop-specific utilities */
 @layer utilities {
-  .desktop-panel-resize-handle {
-    @apply w-1 bg-border hover:bg-primary/50 transition-colors cursor-col-resize;
-  }
-  
-  /* Hide scrollbar but keep functionality */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
@@ -112,4 +155,25 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Recording pulse - uses primary blue */
+@keyframes recording-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.15 25 / 0.5); }
+  50% { box-shadow: 0 0 0 12px transparent; }
+}
+.recording-pulse {
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+/* Breathing animation */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+.breathing-pulse {
+  animation: breathe 2s ease-in-out infinite;
 }

@@ -149,6 +149,13 @@ export class AudioSynthesizer {
     }
   }
 
+  // Play a specific frequency (for chords, etc.)
+  async playFrequency(frequency: number, duration: number = 500): Promise<void> {
+    if (frequency > 0) {
+      await this.playPianoTone(frequency, duration)
+    }
+  }
+
   // Success fanfare! 🎉
   async playSuccessSound(): Promise<void> {
     if (!this.audioContext || !this.masterGain) return

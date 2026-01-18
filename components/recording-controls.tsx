@@ -32,66 +32,94 @@ export function RecordingControls({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      {/* Timer */}
+    <div className="flex flex-col items-center gap-6">
+      {/* Timer - Friendly display with tabular-nums */}
       <div className="text-center">
-        <span className="text-5xl font-mono font-bold text-foreground">{formatTime(recordingDuration)}</span>
+        <span className="text-4xl font-semibold tabular-nums text-foreground tracking-tight">
+          {formatTime(recordingDuration)}
+        </span>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         {!isRecording && !hasRecording && (
-          <Button
+          <button
             onClick={onStartRecording}
-            size="lg"
-            className="w-20 h-20 rounded-full bg-pitch-off hover:bg-pitch-off/90 text-foreground"
+            className="w-20 h-20 rounded-full bg-gradient-to-b from-primary to-primary/80
+                       shadow-[0_8px_32px_-8px] shadow-primary/50
+                       hover:shadow-[0_12px_40px_-8px] hover:shadow-primary/60
+                       hover:translate-y-[-2px]
+                       active:scale-95 active:translate-y-0
+                       transition-all duration-200
+                       flex items-center justify-center text-primary-foreground"
           >
             <Mic className="w-8 h-8" />
-          </Button>
+          </button>
         )}
 
         {isRecording && (
           <>
-            <Button onClick={onTogglePause} size="lg" variant="secondary" className="w-14 h-14 rounded-full">
+            <Button
+              onClick={onTogglePause}
+              size="icon-lg"
+              variant="secondary"
+              className="w-14 h-14 rounded-full shadow-lg"
+            >
               {isPaused ? <Play className="w-6 h-6" /> : <Pause className="w-6 h-6" />}
             </Button>
 
-            <Button
+            <button
               onClick={onStopRecording}
-              size="lg"
-              className="w-20 h-20 rounded-full bg-pitch-off hover:bg-pitch-off/90 text-foreground"
+              className="w-20 h-20 rounded-full bg-gradient-to-b from-destructive to-destructive/80
+                         shadow-[0_8px_32px_-8px] shadow-destructive/50
+                         hover:shadow-[0_12px_40px_-8px] hover:shadow-destructive/60
+                         hover:translate-y-[-2px]
+                         active:scale-95 active:translate-y-0
+                         transition-all duration-200
+                         flex items-center justify-center text-destructive-foreground
+                         breathing-pulse"
             >
               <Square className="w-8 h-8" />
-            </Button>
+            </button>
           </>
         )}
 
         {!isRecording && hasRecording && (
           <>
-            <Button
+            <button
               onClick={onStartRecording}
-              size="lg"
-              className="w-20 h-20 rounded-full bg-pitch-off hover:bg-pitch-off/90 text-foreground"
+              className="w-20 h-20 rounded-full bg-gradient-to-b from-primary to-primary/80
+                         shadow-[0_8px_32px_-8px] shadow-primary/50
+                         hover:shadow-[0_12px_40px_-8px] hover:shadow-primary/60
+                         hover:translate-y-[-2px]
+                         active:scale-95 active:translate-y-0
+                         transition-all duration-200
+                         flex items-center justify-center text-primary-foreground"
             >
               <Mic className="w-8 h-8" />
-            </Button>
+            </button>
 
-            <Button onClick={onReset} size="lg" variant="secondary" className="w-14 h-14 rounded-full">
+            <Button
+              onClick={onReset}
+              size="icon-lg"
+              variant="secondary"
+              className="w-14 h-14 rounded-full shadow-lg"
+            >
               <RotateCcw className="w-6 h-6" />
             </Button>
           </>
         )}
       </div>
 
-      {/* Status text */}
-      <p className="text-sm text-muted-foreground">
+      {/* Status text - Friendly */}
+      <p className="text-sm text-muted-foreground font-medium">
         {isRecording
           ? isPaused
             ? "Wstrzymano"
             : "Nagrywanie..."
           : hasRecording
-            ? "Nagranie zakończone"
-            : "Dotknij aby nagrać"}
+            ? "Nagranie zakonczone"
+            : "Dotknij aby nagrywac"}
       </p>
     </div>
   )
