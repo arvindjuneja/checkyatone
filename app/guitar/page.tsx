@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { trackPageView } from "@/lib/analytics"
-import { Guitar, Music, Gamepad2 } from "lucide-react"
+import { Guitar, Music, Gamepad2, Timer } from "lucide-react"
 
 export default function GuitarPage() {
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function GuitarPage() {
         </div>
         <h1 className="text-2xl font-bold">Narzedzia gitarowe</h1>
         <p className="text-sm text-muted-foreground">
-          Stroik gitarowy i gra w akordy
+          Stroik, metronom i gra w akordy
         </p>
       </div>
 
@@ -38,6 +38,23 @@ export default function GuitarPage() {
               <h2 className="text-lg font-semibold mb-1">Stroik gitarowy</h2>
               <p className="text-sm text-muted-foreground">
                 Dostroj gitare za pomoca mikrofonu. Wybierz stroj i kliknij strune aby uslyszec dzwiek referencyjny.
+              </p>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          href="/guitar/metronome"
+          className="bg-card hover:bg-card-hover border border-border rounded-2xl p-6 transition-all hover:shadow-lg hover:border-primary/50 group"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-pitch-good/10 flex items-center justify-center group-hover:bg-pitch-good/20 transition-colors">
+              <Timer className="w-6 h-6 text-pitch-good" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold mb-1">Metronom</h2>
+              <p className="text-sm text-muted-foreground">
+                Precyzyjny metronom z regulacja BPM, tap tempo i roznymi metrami (4/4, 3/4, 6/8).
               </p>
             </div>
           </div>
