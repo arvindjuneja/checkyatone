@@ -1,10 +1,12 @@
 "use client"
 
-import { createContext, useContext, useCallback, useRef, type ReactNode } from "react"
-import { useAudioRecorder } from "@/hooks/use-audio-recorder"
+import { createContext, useContext, useCallback, useRef, useEffect, type ReactNode } from "react"
+import { useAudioRecorder, type DetectionMode } from "@/hooks/use-audio-recorder"
 import { useAudioRecording } from "@/hooks/use-audio-recording"
+import { useVoiceProfile } from "@/hooks/use-voice-profile"
 import { trackEvent } from "@/lib/analytics"
 import type { PitchData } from "@/lib/pitch-detector"
+import type { VoiceProfile } from "@/lib/pitch-detector-pro"
 
 interface AudioRecorderContextType {
   isRecording: boolean
@@ -22,6 +24,10 @@ interface AudioRecorderContextType {
   sensitivity: number
   updateGain: (gain: number) => void
   updateSensitivity: (sensitivity: number) => void
+  // Detection mode
+  detectionMode: DetectionMode
+  setDetectionMode: (mode: DetectionMode) => void
+  voiceProfile: VoiceProfile | null
   // Audio recording
   audioURL: string | null
   audioBlob: Blob | null
@@ -33,7 +39,20 @@ const AudioRecorderContext = createContext<AudioRecorderContextType | null>(null
 export function AudioRecorderProvider({ children }: { children: ReactNode }) {
   const audioRecorder = useAudioRecorder()
   const audioRecording = useAudioRecording()
+  const { voiceProfile, addPitch } = useVoiceProfile()
   const streamRef = useRef<MediaStream | null>(null)
+
+  // Update voice profile in audio recorder when it changes
+  useEffect(() => {
+    audioRecorder.updateVoiceProfile(voiceProfile)
+  }, [voiceProfile, audioRecorder.updateVoiceProfile])
+
+  // Add detected pitches to voice profile for learning
+  useEffect(() => {
+    if (audioRecorder.currentPitch && audioRecorder.isRecording) {
+      addPitch(audioRecorder.currentPitch.frequency)
+    }
+  }, [audioRecorder.currentPitch, audioRecorder.isRecording, addPitch])
 
   // Wrap recording functions with analytics tracking and audio recording
   const startRecording = useCallback(async () => {
@@ -92,6 +111,7 @@ export function AudioRecorderProvider({ children }: { children: ReactNode }) {
     stopRecording,
     togglePause,
     reset,
+    voiceProfile,
     audioURL: audioRecording.audioURL,
     audioBlob: audioRecording.audioBlob,
     saveAudioToSession,

@@ -2,7 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { type PitchData, detectPitch, frequencyToNote } from "@/lib/pitch-detector"
+import { detectPitchPro, resetProPitchTracking, type VoiceProfile } from "@/lib/pitch-detector-pro"
 import { trackEvent } from "@/lib/analytics"
+
+export type DetectionMode = "basic" | "pro"
 
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
@@ -13,6 +16,7 @@ export function useAudioRecorder() {
   const [error, setError] = useState<string | null>(null)
   const [gain, setGain] = useState(2.0) // Default gain multiplier
   const [sensitivity, setSensitivity] = useState(0.002) // RMS threshold - slightly higher to reduce harmonics
+  const [detectionMode, setDetectionModeState] = useState<DetectionMode>("pro") // Default to Pro mode
 
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -22,6 +26,7 @@ export function useAudioRecorder() {
   const animationFrameRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
   const historyRef = useRef<PitchData[]>([])
+  const voiceProfileRef = useRef<VoiceProfile | null>(null)
 
   const processAudio = useCallback(() => {
     if (!analyserRef.current || !audioContextRef.current || isPaused) {
@@ -34,7 +39,18 @@ export function useAudioRecorder() {
     const buffer = new Float32Array(bufferLength)
     analyser.getFloatTimeDomainData(buffer)
 
-    const result = detectPitch(buffer, audioContextRef.current.sampleRate, sensitivity)
+    let result: { frequency: number; confidence: number } | null = null
+
+    if (detectionMode === "pro") {
+      // Use Pro mode with multi-hypothesis scoring
+      result = detectPitchPro(buffer, audioContextRef.current.sampleRate, {
+        rmsThreshold: sensitivity,
+        voiceProfile: voiceProfileRef.current,
+      })
+    } else {
+      // Use Basic YIN-based detection
+      result = detectPitch(buffer, audioContextRef.current.sampleRate, sensitivity)
+    }
 
     // Expanded frequency range: 65 Hz (C2) to 2100 Hz (C7)
     if (result && result.frequency >= 65 && result.frequency <= 2100) {
@@ -60,7 +76,7 @@ export function useAudioRecorder() {
     setRecordingDuration(elapsed)
 
     animationFrameRef.current = requestAnimationFrame(processAudio)
-  }, [isPaused, sensitivity])
+  }, [isPaused, sensitivity, detectionMode])
 
   const startRecording = useCallback(async () => {
     try {
@@ -165,6 +181,17 @@ export function useAudioRecorder() {
     trackEvent("sensitivity_adjusted", "Settings", undefined, Math.round(newSensitivity * 1000))
   }, [])
 
+  const setDetectionMode = useCallback((mode: DetectionMode) => {
+    setDetectionModeState(mode)
+    // Reset pitch tracking when switching modes to avoid stale state
+    resetProPitchTracking()
+    trackEvent("detection_mode_changed", "Settings", mode)
+  }, [])
+
+  const updateVoiceProfile = useCallback((profile: VoiceProfile | null) => {
+    voiceProfileRef.current = profile
+  }, [])
+
   useEffect(() => {
     return () => {
       if (animationFrameRef.current) {
@@ -195,5 +222,8 @@ export function useAudioRecorder() {
     sensitivity,
     updateGain,
     updateSensitivity,
+    detectionMode,
+    setDetectionMode,
+    updateVoiceProfile,
   }
 }

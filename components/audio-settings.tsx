@@ -77,7 +77,7 @@ export function AudioSettings({
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Czułość</label>
               <span className="text-sm text-muted-foreground">
-                {sensitivity === 0.0001 ? "Bardzo wysoka" : 
+                {sensitivity === 0.0001 ? "Bardzo wysoka" :
                  sensitivity === 0.0005 ? "Wysoka" :
                  sensitivity === 0.001 ? "Normalna" :
                  sensitivity === 0.002 ? "Niska" : "Bardzo niska"}
@@ -92,15 +92,15 @@ export function AudioSettings({
               onChange={(e) => onSensitivityChange(parseFloat(e.target.value))}
               disabled={disabled}
               className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer
-                [&::-webkit-slider-thumb]:appearance-none 
-                [&::-webkit-slider-thumb]:w-4 
-                [&::-webkit-slider-thumb]:h-4 
-                [&::-webkit-slider-thumb]:rounded-full 
+                [&::-webkit-slider-thumb]:appearance-none
+                [&::-webkit-slider-thumb]:w-4
+                [&::-webkit-slider-thumb]:h-4
+                [&::-webkit-slider-thumb]:rounded-full
                 [&::-webkit-slider-thumb]:bg-primary
                 [&::-webkit-slider-thumb]:cursor-pointer
-                [&::-moz-range-thumb]:w-4 
-                [&::-moz-range-thumb]:h-4 
-                [&::-moz-range-thumb]:rounded-full 
+                [&::-moz-range-thumb]:w-4
+                [&::-moz-range-thumb]:h-4
+                [&::-moz-range-thumb]:rounded-full
                 [&::-moz-range-thumb]:bg-primary
                 [&::-moz-range-thumb]:border-0
                 [&::-moz-range-thumb]:cursor-pointer

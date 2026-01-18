@@ -9,7 +9,8 @@ import { CurrentNoteDisplay } from "@/components/current-note-display"
 import { RecordingControls } from "@/components/recording-controls"
 import { AudioSettings } from "@/components/audio-settings"
 import { SaveSessionDialog } from "@/components/save-session-dialog"
-import { LayoutList, Circle, Mic, Square } from "lucide-react"
+import { LayoutList, Circle, Mic, Square, Sparkles, Zap, HelpCircle } from "lucide-react"
+import Link from "next/link"
 import { type PitchData } from "@/lib/pitch-detector"
 
 export default function LiveRecordingPage() {
@@ -28,6 +29,8 @@ export default function LiveRecordingPage() {
     sensitivity,
     updateGain,
     updateSensitivity,
+    detectionMode,
+    setDetectionMode,
   } = useAudioRecorderContext()
 
   const [visualizationMode, setVisualizationMode] = useState<"timeline" | "circle">("timeline")
@@ -72,6 +75,46 @@ export default function LiveRecordingPage() {
       {/* Mobile Layout */}
       {!isDesktop && (
         <>
+          {/* Detection Mode - Always Visible */}
+          <div className="bg-card rounded-xl border border-border px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Tryb detekcji</span>
+              <Link
+                href="/settings#help"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Dowiedz się więcej"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </Link>
+            </div>
+            <div className="flex gap-1 bg-secondary rounded-lg p-1">
+              <button
+                onClick={() => setDetectionMode("basic")}
+                disabled={isRecording}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1 ${
+                  detectionMode === "basic"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <Zap className="w-3 h-3" />
+                Basic
+              </button>
+              <button
+                onClick={() => setDetectionMode("pro")}
+                disabled={isRecording}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1 ${
+                  detectionMode === "pro"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <Sparkles className="w-3 h-3" />
+                Pro
+              </button>
+            </div>
+          </div>
+
           {/* Audio Settings */}
           <AudioSettings
             gain={gain}
@@ -160,8 +203,47 @@ export default function LiveRecordingPage() {
       {/* Desktop Layout */}
       {isDesktop && (
         <div className="space-y-4">
-          {/* Top bar: Audio Settings + Compact Controls */}
+          {/* Top bar: Detection Mode + Audio Settings + Compact Controls */}
           <div className="flex items-center gap-4">
+            {/* Detection Mode - Always Visible */}
+            <div className="bg-card rounded-xl border border-border px-4 py-3 flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Tryb detekcji</span>
+                <Link
+                  href="/settings#help"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  title="Dowiedz się więcej"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </Link>
+              </div>
+              <div className="flex gap-1 bg-secondary rounded-lg p-1">
+                <button
+                  onClick={() => setDetectionMode("basic")}
+                  disabled={isRecording}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1 ${
+                    detectionMode === "basic"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <Zap className="w-3 h-3" />
+                  Basic
+                </button>
+                <button
+                  onClick={() => setDetectionMode("pro")}
+                  disabled={isRecording}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1 ${
+                    detectionMode === "pro"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Pro
+                </button>
+              </div>
+            </div>
             <div className="flex-1">
               <AudioSettings
                 gain={gain}

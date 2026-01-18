@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { useHitTheNoteGame, type OctaveRange } from "@/hooks/use-hit-the-note-game"
-import { Play, Volume2, SkipForward, Home, Heart, Music, ChevronUp, ChevronDown, Check } from "lucide-react"
+import { Play, Volume2, SkipForward, Home, Heart, Music, ChevronUp, ChevronDown, Check, Sparkles } from "lucide-react"
 import { type PitchData } from "@/lib/pitch-detector"
+import type { DetectionMode } from "@/hooks/use-audio-recorder"
 
 interface HitTheNoteGameProps {
   currentPitch: PitchData | null
   isRecordingActive: boolean
   onStartRecording: () => void
   onStopRecording: () => void
+  detectionMode?: DetectionMode
+  onDetectionModeChange?: (mode: DetectionMode) => void
 }
 
 export function HitTheNoteGame({
@@ -18,6 +21,8 @@ export function HitTheNoteGame({
   isRecordingActive,
   onStartRecording,
   onStopRecording,
+  detectionMode = "pro",
+  onDetectionModeChange,
 }: HitTheNoteGameProps) {
   const [octaveRange, setOctaveRange] = useState<OctaveRange>("medium")
   const [strictOctave, setStrictOctave] = useState(true)
@@ -146,6 +151,43 @@ export function HitTheNoteGame({
               }`} />
             </button>
           </div>
+
+          {/* Detection Mode Toggle */}
+          {onDetectionModeChange && (
+            <div className="flex items-center justify-between pt-3 mt-3 border-t border-border">
+              <div>
+                <h4 className="font-medium text-sm">Tryb detekcji</h4>
+                <p className="text-xs text-muted-foreground">
+                  {detectionMode === "pro"
+                    ? "Analizuje harmoniczne, by lepiej rozpoznać oktawę (C3 vs C4)"
+                    : "Szybka detekcja YIN - może mylić oktawy"}
+                </p>
+              </div>
+              <div className="flex gap-1 bg-secondary rounded-lg p-1">
+                <button
+                  onClick={() => onDetectionModeChange("basic")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${
+                    detectionMode === "basic"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Basic
+                </button>
+                <button
+                  onClick={() => onDetectionModeChange("pro")}
+                  className={`px-2 py-1 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1 ${
+                    detectionMode === "pro"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Pro
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <Button

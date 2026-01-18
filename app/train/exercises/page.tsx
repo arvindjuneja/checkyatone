@@ -14,6 +14,8 @@ export default function ExercisesPage() {
     isRecording,
     startRecording,
     stopRecording,
+    detectionMode,
+    setDetectionMode,
   } = useAudioRecorderContext()
 
   useEffect(() => {
@@ -35,6 +37,8 @@ export default function ExercisesPage() {
         isRecordingActive={isRecording}
         onStartRecording={startRecording}
         onStopRecording={stopRecording}
+        detectionMode={detectionMode}
+        onDetectionModeChange={setDetectionMode}
       />
     </div>
   )
