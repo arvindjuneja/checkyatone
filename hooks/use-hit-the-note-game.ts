@@ -34,7 +34,10 @@ export interface PitchFeedback {
   userOctave: number
 }
 
-export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
+export function useHitTheNoteGame(
+  octaveRange: OctaveRange = "medium",
+  strictOctave: boolean = true
+) {
   const [phase, setPhase] = useState<GamePhase>("ready")
   const [currentNote, setCurrentNote] = useState<GameNote | null>(null)
   const [score, setScore] = useState(0)
@@ -133,16 +136,17 @@ export function useHitTheNoteGame(octaveRange: OctaveRange = "medium") {
     totalPitchCountRef.current++
 
     // Calculate how close the pitch is to the target note
-    // Allow octave-agnostic matching since pitch detection can sometimes
-    // detect harmonics instead of the fundamental, and people sing in different octaves
     const targetFreq = currentNote.frequency
     let semitonesDiff = 12 * Math.log2(pitch.frequency / targetFreq)
-    
-    // Normalize to within ±6 semitones (allow any octave of the same note)
+
+    // Only normalize octaves if strict mode is OFF
     // This handles cases where pitch detector catches harmonics (2x, 4x frequency)
     // or when singers naturally transpose to their comfortable octave
-    while (semitonesDiff > 6) semitonesDiff -= 12
-    while (semitonesDiff < -6) semitonesDiff += 12
+    if (!strictOctave) {
+      // Normalize to within ±6 semitones (allow any octave of the same note)
+      while (semitonesDiff > 6) semitonesDiff -= 12
+      while (semitonesDiff < -6) semitonesDiff += 12
+    }
     
     const cents = Math.abs(semitonesDiff * 100)
     const centsWithSign = semitonesDiff * 100

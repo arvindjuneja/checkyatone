@@ -20,7 +20,8 @@ export function HitTheNoteGame({
   onStopRecording,
 }: HitTheNoteGameProps) {
   const [octaveRange, setOctaveRange] = useState<OctaveRange>("medium")
-  
+  const [strictOctave, setStrictOctave] = useState(true)
+
   const {
     phase,
     currentNote,
@@ -36,7 +37,7 @@ export function HitTheNoteGame({
     processPitch,
     skipNote,
     reset,
-  } = useHitTheNoteGame(octaveRange)
+  } = useHitTheNoteGame(octaveRange, strictOctave)
 
   // Process pitches when playing
   useEffect(() => {
@@ -123,6 +124,28 @@ export function HitTheNoteGame({
             {octaveRange === "medium" && "C3-B4 (wygodny zakres - domyślny)"}
             {octaveRange === "high" && "C3-B5 (pełny zakres, trudniejszy)"}
           </p>
+
+          {/* Strict Octave Toggle */}
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-border">
+            <div>
+              <h4 className="font-medium text-sm">Dokładna oktawa</h4>
+              <p className="text-xs text-muted-foreground">
+                {strictOctave
+                  ? "Wymagana dokładna wysokość dźwięku"
+                  : "Akceptuje tą samą nutę w dowolnej oktawie"}
+              </p>
+            </div>
+            <button
+              onClick={() => setStrictOctave(!strictOctave)}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                strictOctave ? "bg-pitch-perfect" : "bg-secondary"
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                strictOctave ? "translate-x-6" : "translate-x-0.5"
+              }`} />
+            </button>
+          </div>
         </div>
 
         <Button
