@@ -19,6 +19,7 @@ import {
   Music,
   Youtube,
   Guitar,
+  TrendingUp,
 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useState } from "react"
@@ -57,6 +58,7 @@ const navGroups: NavGroup[] = [
   { href: "/guitar", icon: Guitar, label: "Guitar" },
   { href: "/edit/studio", icon: Layers, label: "Studio" },
   { href: "/library", icon: Library, label: "Library" },
+  { href: "/library/progress", icon: TrendingUp, label: "Progress" },
 ]
 
 export function DesktopNavigation({ pathname, children }: DesktopNavigationProps) {

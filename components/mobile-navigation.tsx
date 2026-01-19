@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Home, Mic, GraduationCap, Library, Music2, Settings, Guitar } from "lucide-react"
+import { Home, Mic, GraduationCap, Library, Music2, Settings, Guitar, TrendingUp } from "lucide-react"
 
 interface MobileNavigationProps {
   pathname: string
@@ -18,7 +18,7 @@ export function MobileNavigation({ pathname }: MobileNavigationProps) {
     { href: "/record/live", icon: Mic, label: "Practice" },
     { href: "/train", icon: GraduationCap, label: "Learn" },
     { href: "/guitar", icon: Guitar, label: "Guitar" },
-    { href: "/library", icon: Library, label: "Library" },
+    { href: "/library/progress", icon: TrendingUp, label: "Progress" },
   ]
 
   return (
