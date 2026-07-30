@@ -1,18 +1,40 @@
 /**
- * Pro Pitch Detector: Multi-Hypothesis F0 Detection
+ * Pro Pitch Detector: wielohipotezowa detekcja F0.
  *
- * Uses YIN for candidate generation, then scores each candidate using:
- * - Harmonic consistency (does this F0 explain the spectrum?)
- * - Temporal stability (is this consistent with recent pitches?)
- * - User range match (is this within the user's vocal range?)
- * - YIN confidence (original detection confidence)
+ * Werdykt o okresowości wydaje rdzeń YIN (lib/yin.ts). Ten moduł dokłada to,
+ * czego sama okresowość nie rozstrzyga: kiedy fundamentalna jest słaba lub
+ * wycięta (telefon, mały głośnik, filtr górnoprzepustowy), sygnał bywa
+ * jednakowo dobrze wyjaśniany przez f0 i przez f0/2.
  *
- * Winner = highest combined score (not highest energy).
+ * Dwie przesłanki, celowo komplementarne:
+ *
+ *   OKRESOWOŚĆ (CMNDF w danym tau) wyklucza hipotezy oktawę W GÓRĘ — sygnał
+ *   o okresie T nie jest okresowy w T/2.
+ *
+ *   KOMPLETNOŚĆ SZEREGU HARMONICZNEGO wyklucza hipotezy oktawę W DÓŁ. Przy
+ *   prawdziwej fundamentalnej energię niesie każda jej wielokrotność; przy
+ *   hipotezie zaniżonej k-krotnie tylko co k-ta.
+ *
+ * Poprzednia wersja liczyła SUMARYCZNĄ energię harmonicznych i porównywała ją
+ * między hipotezami. To nie może działać: szereg harmoniczny f0/2 zawiera cały
+ * szereg f0, więc suma dla subharmonicznej jest zawsze większa lub równa.
+ * Stąd C4 261,63 Hz odczytywane jako 87,21 Hz.
+ *
+ * Widmo liczone jest Goertzelem na kilkunastu prążkach zamiast pełnym DFT —
+ * poprzednia wersja wołała naiwne DFT 2048-punktowe kosztem 26,9 ms na ramkę,
+ * synchronicznie na wątku UI, w trybie domyślnym.
  */
 
-import { computeFFTMagnitudes, computeHarmonicEnergy } from "./fft-analyzer"
 import type { PitchData } from "./pitch-detector"
 import { frequencyToNote } from "./pitch-detector"
+import {
+  applyHannWindow,
+  computeRms,
+  detectF0,
+  goertzelMagnitude,
+  MAX_F0_HZ,
+  MIN_F0_HZ,
+} from "./yin"
 
 // ----- Interfaces -----
 
@@ -42,264 +64,172 @@ export interface ProDetectorOptions {
   voiceProfile?: VoiceProfile | null
 }
 
-// ----- Scoring weights -----
+// ----- Wagi -----
 
+/**
+ * Okresowość i parzystość harmonicznych rozstrzygają. Stabilność czasowa i
+ * profil głosu tylko rozbijają remisy — łącznie 0,15, czyli mniej niż typowa
+ * różnica między poprawną hipotezą a jej subharmoniczną. To jest celowe:
+ * przesłanka „poprzednio było podobnie" nie ma prawa przegłosować pomiaru,
+ * bo wtedy pierwszy błąd utrwala się na resztę frazy.
+ */
 const WEIGHTS = {
-  harmonicConsistency: 0.4,
-  temporalStability: 0.3,
-  userRangeMatch: 0.2,
-  confidenceScore: 0.1,
+  periodicity: 0.5,
+  harmonicCompleteness: 0.35,
+  temporalStability: 0.1,
+  userRangeMatch: 0.05,
 }
-
-// ----- State for temporal tracking -----
 
 const STABILITY_WINDOW = 10
 let recentF0s: number[] = []
-let previousFrequencyPro: number | null = null
 
 export function resetProPitchTracking() {
   recentF0s = []
-  previousFrequencyPro = null
 }
 
-// ----- Scoring Functions -----
+// ----- Przesłanki -----
+
+const HARMONIC_COUNT = 8
+/** Prążek poniżej −26 dB względem najsilniejszej harmonicznej uznajemy za pusty. */
+const HARMONIC_PRESENCE_FLOOR = 0.05
 
 /**
- * Score how well the F0 explains the harmonic structure.
- * A true fundamental will have strong energy at harmonics.
+ * Kompletność szeregu harmonicznego hipotezy, ważona 1/n.
+ *
+ * Dla prawdziwej fundamentalnej energię niesie KAŻDA wielokrotność f0. Dla
+ * hipotezy zaniżonej k-krotnie energia siedzi tylko w co k-tym prążku, bo
+ * pozostałe leżą pomiędzy prawdziwymi harmonicznymi. Waga 1/n sprawia, że brak
+ * niskich harmonicznych kosztuje najwięcej.
+ *
+ * Wartości dla obwiedni 1/n: prawdziwe f0 → 1,00; f0/2 → 0,38; f0/3 → 0,18.
+ *
+ * Sam stosunek nieparzystych do parzystych tu nie wystarcza: w szeregu
+ * nieparzystym hipotezy f0/3 leży samo f0, więc taki test przepuszcza ÷3.
  */
-function getHarmonicConsistencyScore(
+function getHarmonicCompletenessScore(
+  windowedBuffer: Float32Array,
+  sampleRate: number,
   f0: number,
-  fftMagnitudes: Float32Array,
-  sampleRate: number,
-  fftSize: number
 ): number {
-  // Get harmonic energy for this candidate
-  const energy = computeHarmonicEnergy(fftMagnitudes, f0, sampleRate, fftSize, 6)
+  const nyquist = sampleRate / 2
+  const magnitudes: number[] = []
 
-  // Also check energy at f0/2 (potential subharmonic)
-  const subharmonicEnergy = f0 >= 100
-    ? computeHarmonicEnergy(fftMagnitudes, f0 / 2, sampleRate, fftSize, 6)
-    : 0
-
-  // Also check energy at f0*2 (potential octave-above fundamental)
-  const octaveAboveEnergy = computeHarmonicEnergy(fftMagnitudes, f0 * 2, sampleRate, fftSize, 6)
-
-  // If subharmonic or octave-above has stronger harmonic structure, penalize
-  if (subharmonicEnergy > energy * 1.2) {
-    return 0.3 // This might be a subharmonic
-  }
-  if (octaveAboveEnergy > energy * 1.5) {
-    return 0.4 // This might be octave too low
+  for (let harmonic = 1; harmonic <= HARMONIC_COUNT; harmonic++) {
+    const frequency = f0 * harmonic
+    magnitudes.push(
+      frequency >= nyquist ? 0 : goertzelMagnitude(windowedBuffer, sampleRate, frequency),
+    )
   }
 
-  // Normalize energy to 0-1 range (heuristic normalization)
-  // Higher energy relative to alternatives = higher score
-  const maxEnergy = Math.max(energy, subharmonicEnergy, octaveAboveEnergy, 0.001)
-  return Math.min(1, energy / maxEnergy)
+  const strongest = Math.max(...magnitudes)
+  if (strongest < 1e-9) return 0
+
+  let presentWeight = 0
+  let totalWeight = 0
+  for (let harmonic = 1; harmonic <= HARMONIC_COUNT; harmonic++) {
+    const weight = 1 / harmonic
+    totalWeight += weight
+    if (magnitudes[harmonic - 1] > strongest * HARMONIC_PRESENCE_FLOOR) presentWeight += weight
+  }
+
+  return presentWeight / totalWeight
 }
 
-/**
- * Score temporal stability - penalize sudden jumps.
- * Real pitch is relatively stable frame-to-frame.
- */
 function getTemporalStabilityScore(f0: number): number {
-  if (recentF0s.length < 3) {
-    return 0.5 // Neutral if not enough history
+  if (recentF0s.length < 3) return 0.5
+
+  const distances = recentF0s.map((previous) => Math.abs(12 * Math.log2(f0 / previous)))
+  const averageDistance = distances.reduce((a, b) => a + b, 0) / distances.length
+
+  return Math.max(0, 1 - averageDistance / 12)
+}
+
+function getUserRangeScore(f0: number, profile: VoiceProfile | null): number {
+  if (!profile || profile.sampleCount < 50) return 0.5
+
+  if (f0 >= profile.minF0 && f0 <= profile.maxF0) {
+    const semitonesFromCenter = Math.abs(12 * Math.log2(f0 / profile.comfortableF0))
+    return Math.max(0.3, 1 - semitonesFromCenter / 24)
   }
 
-  // Calculate average semitone distance from recent pitches
-  const semitoneDistances = recentF0s.map((prev) =>
-    Math.abs(12 * Math.log2(f0 / prev))
-  )
+  const semitonesOutside =
+    f0 < profile.minF0
+      ? 12 * Math.log2(profile.minF0 / f0)
+      : 12 * Math.log2(f0 / profile.maxF0)
 
-  const avgDistance = semitoneDistances.reduce((a, b) => a + b, 0) / semitoneDistances.length
-
-  // Lower average distance = more stable = higher score
-  // 0 semitones avg -> score 1.0
-  // 12 semitones avg (octave jump) -> score 0.0
-  return Math.max(0, 1 - avgDistance / 12)
+  return Math.max(0, 0.3 - semitonesOutside / 12)
 }
+
+// ----- Detekcja -----
 
 /**
- * Score match to user's observed vocal range.
- * If user always sings 150-400Hz, suddenly showing 75Hz is likely subharmonic.
+ * Hipotezy oktawowe wokół werdyktu YIN-a. Mnożniki, nie dowolne kandydatury:
+ * błędy detekcji F0 są z definicji błędami o całkowity stosunek okresów.
  */
-function getUserRangeScore(f0: number, profile: VoiceProfile | null): number {
-  if (!profile || profile.sampleCount < 50) {
-    return 0.5 // Neutral if no profile or not enough data
-  }
-
-  // Check if f0 is within user's observed range
-  if (f0 >= profile.minF0 && f0 <= profile.maxF0) {
-    // Within range - score based on distance from comfortable center
-    const semitoneFromCenter = Math.abs(12 * Math.log2(f0 / profile.comfortableF0))
-    return Math.max(0.3, 1 - semitoneFromCenter / 24) // 2 octaves = min score
-  }
-
-  // Outside observed range - likely octave error
-  const semitoneOutside = f0 < profile.minF0
-    ? 12 * Math.log2(profile.minF0 / f0)
-    : 12 * Math.log2(f0 / profile.maxF0)
-
-  return Math.max(0, 0.3 - semitoneOutside / 12) // Penalize heavily
-}
-
-// ----- YIN Candidate Extraction -----
-
-interface YINCandidate {
-  tau: number
-  frequency: number
-  confidence: number // 1 - yinValue
-}
-
-function getYINCandidates(
-  buffer: Float32Array,
-  sampleRate: number,
-  minFrequency: number = 65,
-  maxFrequency: number = 2100,
-  yinThreshold: number = 0.35
-): YINCandidate[] {
-  const SIZE = buffer.length
-  const MIN_PERIOD = Math.floor(sampleRate / maxFrequency)
-  const MAX_PERIOD = Math.floor(sampleRate / minFrequency)
-
-  // YIN difference function
-  const yinBuffer = new Float32Array(MAX_PERIOD)
-
-  for (let tau = 0; tau < MAX_PERIOD; tau++) {
-    yinBuffer[tau] = 0
-    for (let i = 0; i < MAX_PERIOD; i++) {
-      if (i + tau < SIZE) {
-        const delta = buffer[i] - buffer[i + tau]
-        yinBuffer[tau] += delta * delta
-      }
-    }
-  }
-
-  // Cumulative mean normalized difference
-  yinBuffer[0] = 1
-  let runningSum = 0
-  for (let tau = 1; tau < MAX_PERIOD; tau++) {
-    runningSum += yinBuffer[tau]
-    yinBuffer[tau] *= tau / runningSum
-  }
-
-  // Find all local minima below threshold
-  const candidates: YINCandidate[] = []
-
-  for (let tau = MIN_PERIOD; tau < MAX_PERIOD - 1; tau++) {
-    if (yinBuffer[tau] < yinThreshold) {
-      if (yinBuffer[tau] < yinBuffer[tau - 1] && yinBuffer[tau] <= yinBuffer[tau + 1]) {
-        // Parabolic interpolation for better precision
-        let betterTau = tau
-        if (tau > 0 && tau < MAX_PERIOD - 1) {
-          const s0 = yinBuffer[tau - 1]
-          const s1 = yinBuffer[tau]
-          const s2 = yinBuffer[tau + 1]
-          const denom = 2 * (2 * s1 - s2 - s0)
-          if (Math.abs(denom) > 0.0001) {
-            betterTau = tau + (s2 - s0) / denom
-          }
-        }
-
-        const frequency = sampleRate / betterTau
-        const confidence = 1 - yinBuffer[tau]
-
-        if (frequency >= minFrequency && frequency <= maxFrequency) {
-          candidates.push({ tau: betterTau, frequency, confidence })
-        }
-      }
-    }
-  }
-
-  return candidates
-}
-
-// ----- Main Detection Function -----
+const OCTAVE_HYPOTHESES = [2, 1, 1 / 2, 1 / 3]
 
 export function detectPitchPro(
   buffer: Float32Array,
   sampleRate: number,
-  options: ProDetectorOptions = {}
+  options: ProDetectorOptions = {},
 ): { frequency: number; confidence: number; candidates: PitchCandidate[] } | null {
   const { rmsThreshold = 0.001, voiceProfile = null } = options
 
-  // Calculate RMS
-  let rms = 0
-  for (let i = 0; i < buffer.length; i++) {
-    rms += buffer[i] * buffer[i]
-  }
-  rms = Math.sqrt(rms / buffer.length)
+  if (computeRms(buffer) < rmsThreshold) return null
 
-  if (rms < rmsThreshold) {
-    return null
-  }
-
-  // Get YIN candidates
-  const yinCandidates = getYINCandidates(buffer, sampleRate)
-
-  if (yinCandidates.length === 0) {
-    return null
-  }
-
-  // Compute FFT for harmonic analysis
-  const fftSize = 2048
-  const fftMagnitudes = computeFFTMagnitudes(buffer, fftSize)
-
-  // Score each candidate
-  const scoredCandidates: PitchCandidate[] = yinCandidates.map((candidate) => {
-    const harmonicScore = getHarmonicConsistencyScore(
-      candidate.frequency,
-      fftMagnitudes,
-      sampleRate,
-      fftSize
-    )
-    const stabilityScore = getTemporalStabilityScore(candidate.frequency)
-    const rangeScore = getUserRangeScore(candidate.frequency, voiceProfile)
-    const confidenceScore = candidate.confidence
-
-    const finalScore =
-      WEIGHTS.harmonicConsistency * harmonicScore +
-      WEIGHTS.temporalStability * stabilityScore +
-      WEIGHTS.userRangeMatch * rangeScore +
-      WEIGHTS.confidenceScore * confidenceScore
-
-    return {
-      frequency: candidate.frequency,
-      confidence: candidate.confidence,
-      harmonicScore,
-      stabilityScore,
-      rangeScore,
-      finalScore,
-    }
+  const yin = detectF0(buffer, sampleRate, {
+    minFrequency: MIN_F0_HZ,
+    maxFrequency: MAX_F0_HZ,
   })
+  if (!yin) return null
 
-  // Sort by final score (highest first)
-  scoredCandidates.sort((a, b) => b.finalScore - a.finalScore)
+  const { cmndf, analysisSampleRate, frequency: baseFrequency } = yin
 
-  // Winner is highest scoring candidate
-  const winner = scoredCandidates[0]
+  // Okno nakładane raz na ramkę, nie raz na hipotezę.
+  const windowedBuffer = applyHannWindow(buffer)
+  const scored: PitchCandidate[] = []
 
-  // Require minimum confidence
-  if (winner.confidence < 0.6) {
-    return null
+  for (const multiplier of OCTAVE_HYPOTHESES) {
+    const frequency = baseFrequency * multiplier
+    if (frequency < MIN_F0_HZ || frequency > MAX_F0_HZ) continue
+
+    // Okresowość odczytana wprost z CMNDF w tau odpowiadającym hipotezie.
+    const tau = Math.round(analysisSampleRate / frequency)
+    if (tau < 2 || tau >= cmndf.length) continue
+    const periodicity = Math.max(0, 1 - cmndf[tau])
+
+    const harmonicCompleteness = getHarmonicCompletenessScore(windowedBuffer, sampleRate, frequency)
+    const stability = getTemporalStabilityScore(frequency)
+    const range = getUserRangeScore(frequency, voiceProfile)
+
+    scored.push({
+      frequency,
+      confidence: periodicity,
+      harmonicScore: harmonicCompleteness,
+      stabilityScore: stability,
+      rangeScore: range,
+      finalScore:
+        WEIGHTS.periodicity * periodicity +
+        WEIGHTS.harmonicCompleteness * harmonicCompleteness +
+        WEIGHTS.temporalStability * stability +
+        WEIGHTS.userRangeMatch * range,
+    })
   }
 
-  // Update temporal tracking
+  if (scored.length === 0) return null
+
+  scored.sort((a, b) => b.finalScore - a.finalScore)
+  const winner = scored[0]
+
+  if (winner.confidence < 0.7) return null
+
   recentF0s.push(winner.frequency)
-  if (recentF0s.length > STABILITY_WINDOW) {
-    recentF0s.shift()
-  }
-  previousFrequencyPro = winner.frequency
-
-  // Return top 3 candidates for debugging UI
-  const topCandidates = scoredCandidates.slice(0, 3)
+  if (recentF0s.length > STABILITY_WINDOW) recentF0s.shift()
 
   return {
     frequency: winner.frequency,
     confidence: winner.confidence,
-    candidates: topCandidates,
+    candidates: scored.slice(0, 3),
   }
 }
 
@@ -309,13 +239,10 @@ export function detectPitchPro(
 export function detectPitchProWithNote(
   buffer: Float32Array,
   sampleRate: number,
-  options: ProDetectorOptions = {}
+  options: ProDetectorOptions = {},
 ): PitchDataPro | null {
   const result = detectPitchPro(buffer, sampleRate, options)
-
-  if (!result) {
-    return null
-  }
+  if (!result) return null
 
   const noteInfo = frequencyToNote(result.frequency)
 
