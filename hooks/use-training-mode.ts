@@ -21,10 +21,22 @@ export function useTrainingMode() {
   const [currentNoteIndex, setCurrentNoteIndex] = useState(0)
   const [isPlayingReference, setIsPlayingReference] = useState(false)
   const [isPlayingSingleNote, setIsPlayingSingleNote] = useState(false)
+  const [isListeningPaused, setIsListeningPaused] = useState(false)
   const [accuracyResults, setAccuracyResults] = useState<NoteAccuracy[]>([])
   const [recordedPitches, setRecordedPitches] = useState<PitchData[]>([])
 
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
+  const listeningPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  /**
+   * Ta sama bramka co w grze nutowej. Mikrofon pracuje bez echo cancellation,
+   * a przyciski odsłuchu nuty są dostępne TAKŻE w fazie nagrywania — bez tego
+   * ton z głośnika trafiał do `addPitch` i ćwiczenie oceniało samo siebie.
+   *
+   * Trzymane w ref, bo `addPitch` woła pętla analizy i odczyt stanu byłby
+   * przestarzały dokładnie w tych ramkach, w których bramka ma zadziałać.
+   */
+  const listeningPausedRef = useRef(false)
   const recordingStartTimeRef = useRef<number>(0)
   const recordedPitchesRef = useRef<PitchData[]>([])
 
@@ -39,6 +51,9 @@ export function useTrainingMode() {
         synthesizerRef.current.close()
         synthesizerRef.current = null
       }
+      if (listeningPauseTimeoutRef.current) {
+        clearTimeout(listeningPauseTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -50,10 +65,31 @@ export function useTrainingMode() {
     setRecordedPitches([])
   }, [])
 
+  /** Ogon na wybrzmienie głośnika i odbicie od pomieszczenia. */
+  const PLAYBACK_TAIL_MS = 350
+
+  const beginPlayback = useCallback(() => {
+    if (listeningPauseTimeoutRef.current) {
+      clearTimeout(listeningPauseTimeoutRef.current)
+      listeningPauseTimeoutRef.current = null
+    }
+    listeningPausedRef.current = true
+    setIsListeningPaused(true)
+  }, [])
+
+  const endPlayback = useCallback(() => {
+    if (listeningPauseTimeoutRef.current) clearTimeout(listeningPauseTimeoutRef.current)
+    listeningPauseTimeoutRef.current = setTimeout(() => {
+      listeningPausedRef.current = false
+      setIsListeningPaused(false)
+    }, PLAYBACK_TAIL_MS)
+  }, [])
+
   const playReference = useCallback(async () => {
     if (!selectedExercise || !synthesizerRef.current) return
 
     setIsPlayingReference(true)
+    beginPlayback()
     try {
       const completed = await synthesizerRef.current.playNoteSequence(selectedExercise.notes, 300)
       if (completed) {
@@ -63,28 +99,32 @@ export function useTrainingMode() {
       console.error("Error playing reference:", error)
     } finally {
       setIsPlayingReference(false)
+      endPlayback()
     }
-  }, [selectedExercise])
+  }, [selectedExercise, beginPlayback, endPlayback])
 
   const playSingleNote = useCallback(async (note: ToneNote) => {
     if (!synthesizerRef.current) return
 
     setIsPlayingSingleNote(true)
+    beginPlayback()
     try {
       await synthesizerRef.current.playNote(note.note, note.octave, note.duration)
     } catch (error) {
       console.error("Error playing single note:", error)
     } finally {
       setIsPlayingSingleNote(false)
+      endPlayback()
     }
-  }, [])
+  }, [beginPlayback, endPlayback])
 
   const stopPlaying = useCallback(() => {
     if (!synthesizerRef.current) return
     synthesizerRef.current.stopAllSounds()
     setIsPlayingReference(false)
     setIsPlayingSingleNote(false)
-  }, [])
+    endPlayback()
+  }, [endPlayback])
 
   const startRecording = useCallback(() => {
     setPhase("recording")
@@ -95,6 +135,8 @@ export function useTrainingMode() {
 
   const addPitch = useCallback((pitch: PitchData) => {
     if (phase !== "recording") return
+    // Głośnik nie ćwiczy za użytkownika.
+    if (listeningPausedRef.current) return
     recordedPitchesRef.current = [...recordedPitchesRef.current, pitch]
     setRecordedPitches(recordedPitchesRef.current)
   }, [phase])
@@ -131,6 +173,7 @@ export function useTrainingMode() {
     currentNoteIndex,
     isPlayingReference,
     isPlayingSingleNote,
+    isListeningPaused,
     accuracyResults,
     recordedPitches,
     selectExercise,

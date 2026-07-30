@@ -34,6 +34,7 @@ export function HitTheNoteGame({
     lives,
     attempts,
     isPlayingNote,
+    isListeningPaused,
     hitProgress,
     isHittingNote,
     pitchFeedback,
@@ -389,13 +390,13 @@ export function HitTheNoteGame({
         <div className="flex gap-2">
           <Button
             onClick={playCurrentNote}
-            disabled={isPlayingNote}
+            disabled={isPlayingNote || isListeningPaused}
             variant="secondary"
             size="lg"
             className="flex-1 gap-2"
           >
-            <Volume2 className={`w-5 h-5 ${isPlayingNote ? "animate-pulse" : ""}`} />
-            {isPlayingNote ? "Gram..." : "Powtórz nutę"}
+            <Volume2 className={`w-5 h-5 ${isPlayingNote || isListeningPaused ? "animate-pulse" : ""}`} />
+            {isPlayingNote || isListeningPaused ? "Słuchaj..." : "Powtórz nutę"}
           </Button>
           <Button
             onClick={skipNote}

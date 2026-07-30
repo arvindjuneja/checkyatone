@@ -10,6 +10,14 @@ const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 // ~5 seconds at ~20 pitch detections per second
 const REQUIRED_CONSECUTIVE_HITS = 100
 
+/** Długość tonu wzorcowego. */
+const REFERENCE_TONE_MS = 800
+/**
+ * Ogon po wybrzmieniu tonu: wybrzmiewanie głośnika i odbicie od pomieszczenia
+ * trwa dłużej niż sama obwiednia syntezatora.
+ */
+const PLAYBACK_TAIL_MS = 350
+
 export type GamePhase = "ready" | "playing" | "celebrating" | "gameover"
 export type OctaveRange = "low" | "medium" | "high"
 export type PitchDirection = "perfect" | "sharp" | "flat" | null
@@ -48,11 +56,57 @@ export function useHitTheNoteGame(
   const [isHittingNote, setIsHittingNote] = useState(false)
   const [pitchFeedback, setPitchFeedback] = useState<PitchFeedback | null>(null)
 
+  const [isListeningPaused, setIsListeningPaused] = useState(false)
+
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
   const noteStartTimeRef = useRef<number>(0)
   const correctPitchCountRef = useRef(0)
   const totalPitchCountRef = useRef(0)
   const consecutiveCorrectRef = useRef(0)
+  const listeningPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  /**
+   * Bramka trzymana w ref, nie tylko w stanie.
+   *
+   * `processPitch` jest wołane z pętli analizy i domyka wartości ze swojego
+   * renderu. Sam odczyt stanu byłby przestarzały dokładnie w tym momencie, w
+   * którym ma zadziałać — czyli w pierwszych ramkach po włączeniu dźwięku.
+   */
+  const listeningPausedRef = useRef(false)
+
+  /**
+   * Mikrofon pracuje z `echoCancellation: false` (bo AGC i EC psują pomiar
+   * wysokości), więc ton wzorcowy z głośnika wraca do detektora jako idealnie
+   * trafiona nuta docelowa.
+   *
+   * Skala: `processPitch` jest wołane przy każdej zmianie `currentPitch`, czyli
+   * raz na ramkę rAF (~60/s). 800 ms tonu to około 48 ze 100 wymaganych ramek —
+   * blisko połowa paska za każdym odtworzeniem. Dwa naciśnięcia „Powtórz nutę"
+   * wystarczały, żeby zaliczyć nutę bez zaśpiewania jednego dźwięku.
+   */
+  const pauseListeningDuringPlayback = useCallback(
+    (durationMs: number = REFERENCE_TONE_MS + PLAYBACK_TAIL_MS) => {
+      if (listeningPauseTimeoutRef.current) {
+        clearTimeout(listeningPauseTimeoutRef.current)
+      }
+
+      listeningPausedRef.current = true
+      setIsListeningPaused(true)
+      consecutiveCorrectRef.current = 0
+      setHitProgress(0)
+      setIsHittingNote(false)
+      setPitchFeedback(null)
+
+      listeningPauseTimeoutRef.current = setTimeout(() => {
+        listeningPausedRef.current = false
+        setIsListeningPaused(false)
+        // Czas na trafienie liczymy od momentu, w którym użytkownik
+        // faktycznie może zacząć śpiewać.
+        noteStartTimeRef.current = Date.now()
+      }, durationMs)
+    },
+    [],
+  )
 
   useEffect(() => {
     if (typeof window !== "undefined" && !synthesizerRef.current) {
@@ -63,6 +117,9 @@ export function useHitTheNoteGame(
       if (synthesizerRef.current) {
         synthesizerRef.current.close()
         synthesizerRef.current = null
+      }
+      if (listeningPauseTimeoutRef.current) {
+        clearTimeout(listeningPauseTimeoutRef.current)
       }
     }
   }, [])
@@ -95,15 +152,15 @@ export function useHitTheNoteGame(
     if (!currentNote || !synthesizerRef.current) return
 
     setIsPlayingNote(true)
+    pauseListeningDuringPlayback()
     try {
-      console.log(`🎵 Playing: ${currentNote.note}${currentNote.octave} at ${currentNote.frequency.toFixed(2)} Hz`)
-      await synthesizerRef.current.playNote(currentNote.note, currentNote.octave, 800)
+      await synthesizerRef.current.playNote(currentNote.note, currentNote.octave, REFERENCE_TONE_MS)
     } catch (error) {
       console.error("Error playing note:", error)
     } finally {
       setIsPlayingNote(false)
     }
-  }, [currentNote])
+  }, [currentNote, pauseListeningDuringPlayback])
 
   const startGame = useCallback(() => {
     const firstNote = generateRandomNote()
@@ -123,15 +180,18 @@ export function useHitTheNoteGame(
     trackEvent("game_started", "Game", octaveRange)
 
     // Auto-play the first note
+    pauseListeningDuringPlayback(100 + REFERENCE_TONE_MS + PLAYBACK_TAIL_MS)
     setTimeout(() => {
       if (synthesizerRef.current) {
-        synthesizerRef.current.playNote(firstNote.note, firstNote.octave, 800)
+        synthesizerRef.current.playNote(firstNote.note, firstNote.octave, REFERENCE_TONE_MS)
       }
     }, 100)
-  }, [generateRandomNote, octaveRange])
+  }, [generateRandomNote, octaveRange, pauseListeningDuringPlayback])
 
   const processPitch = useCallback((pitch: PitchData) => {
     if (phase !== "playing" || !currentNote) return
+    // Głośnik nie śpiewa za użytkownika.
+    if (listeningPausedRef.current) return
 
     totalPitchCountRef.current++
 
@@ -228,14 +288,15 @@ export function useHitTheNoteGame(
         setPhase("playing")
 
         // Play next note after a moment
+        pauseListeningDuringPlayback(200 + REFERENCE_TONE_MS + PLAYBACK_TAIL_MS)
         if (synthesizerRef.current) {
           setTimeout(() => {
-            synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, 800)
+            synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, REFERENCE_TONE_MS)
           }, 200)
         }
       }, 1500) // 1.5s celebration time
     }
-  }, [phase, currentNote, generateRandomNote])
+  }, [phase, currentNote, generateRandomNote, pauseListeningDuringPlayback])
 
   const skipNote = useCallback(() => {
     if (phase !== "playing" || !currentNote) return
@@ -272,15 +333,22 @@ export function useHitTheNoteGame(
       noteStartTimeRef.current = Date.now()
 
       // Play next note
+      pauseListeningDuringPlayback(300 + REFERENCE_TONE_MS + PLAYBACK_TAIL_MS)
       if (synthesizerRef.current) {
         setTimeout(() => {
-          synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, 800)
+          synthesizerRef.current?.playNote(nextNote.note, nextNote.octave, REFERENCE_TONE_MS)
         }, 300)
       }
     }
-  }, [phase, currentNote, lives, generateRandomNote])
+  }, [phase, currentNote, lives, generateRandomNote, pauseListeningDuringPlayback])
 
   const reset = useCallback(() => {
+    if (listeningPauseTimeoutRef.current) {
+      clearTimeout(listeningPauseTimeoutRef.current)
+      listeningPauseTimeoutRef.current = null
+    }
+    listeningPausedRef.current = false
+    setIsListeningPaused(false)
     setPhase("ready")
     setCurrentNote(null)
     setScore(0)
@@ -301,6 +369,7 @@ export function useHitTheNoteGame(
     lives,
     attempts,
     isPlayingNote,
+    isListeningPaused,
     hitProgress,
     isHittingNote,
     pitchFeedback,
