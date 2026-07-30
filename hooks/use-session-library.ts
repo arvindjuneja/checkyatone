@@ -103,6 +103,28 @@ export function useSessionLibrary() {
     []
   )
 
+  // Oznaczenie sesji jako mającej audio. Wołane dopiero, gdy blob faktycznie
+  // wylądował w IndexedDB — `hasAudio` ustawiane z góry produkowało sesje,
+  // które biblioteka pokazuje z przyciskiem odtwarzania, a Studio nie umie wczytać.
+  const markSessionAudioSaved = useCallback((sessionId: string) => {
+    try {
+      const stored = localStorage.getItem(SESSIONS_STORAGE_KEY)
+      if (!stored) return
+
+      const sessions: Session[] = JSON.parse(stored)
+      const index = sessions.findIndex((s) => s.id === sessionId)
+      if (index === -1) return
+
+      sessions[index].hasAudio = true
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions))
+
+      const metadata = sessions.map(({ pitchHistory: _, ...meta }) => meta)
+      setSessions(metadata)
+    } catch (error) {
+      console.error("Failed to mark session audio:", error)
+    }
+  }, [])
+
   // Load full session with pitch history
   const loadSession = useCallback((sessionId: string): Session | null => {
     try {
@@ -211,6 +233,7 @@ export function useSessionLibrary() {
     sessions,
     loading,
     saveSession,
+    markSessionAudioSaved,
     loadSession,
     deleteSession,
     renameSession,

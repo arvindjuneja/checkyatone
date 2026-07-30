@@ -61,51 +61,70 @@ const navGroups: NavGroup[] = [
   { href: "/library/progress", icon: TrendingUp, label: "Progress" },
 ]
 
+// Trasy, które same pokazują SaveSessionDialog i same zapisują sesję.
+const ROUTES_WITH_OWN_SAVE_DIALOG = ["/record/live"]
+
 export function DesktopNavigation({ pathname, children }: DesktopNavigationProps) {
   const {
     isRecording,
     pitchHistory,
     recordingDuration,
     error,
+    audioBlob,
     saveAudioToSession,
   } = useAudioRecorderContext()
 
-  const { saveSession } = useSessionLibrary()
+  const { saveSession, markSessionAudioSaved } = useSessionLibrary()
   const recordingStartTimeRef = useRef<number | null>(null)
   const wasRecordingRef = useRef(false)
+  const pendingAudioSessionRef = useRef<string | null>(null)
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(["Practice", "Learn"]))
 
-  // Auto-save session when recording stops
+  // Auto-save session when recording stops.
+  // Nie dotyczy tras z własnym dialogiem zapisu — inaczej jedno nagranie ląduje
+  // w bibliotece dwa razy (raz stąd, raz z SaveSessionDialog).
   useEffect(() => {
-    if (isRecording && !wasRecordingRef.current) {
-      recordingStartTimeRef.current = Date.now()
-    }
-
-    if (!isRecording && wasRecordingRef.current && pitchHistory.length > 0) {
-      const timer = setTimeout(async () => {
-        const duration = recordingStartTimeRef.current
-          ? Math.floor((Date.now() - recordingStartTimeRef.current) / 1000)
-          : recordingDuration
-
-        const sessionType = pathname.startsWith("/training") ? "training" : "live"
-        const sessionId = saveSession(pitchHistory, sessionType, duration, undefined, true)
-
-        if (sessionId) {
-          const saved = await saveAudioToSession(sessionId)
-          if (!saved) {
-            console.warn("Audio not saved for session:", sessionId)
-          }
-        }
-
-        recordingStartTimeRef.current = null
-      }, 300)
-
-      return () => clearTimeout(timer)
-    }
-
+    const wasRecording = wasRecordingRef.current
     wasRecordingRef.current = isRecording
-  }, [isRecording, pitchHistory, saveSession, pathname, recordingDuration, saveAudioToSession])
+
+    if (isRecording && !wasRecording) {
+      recordingStartTimeRef.current = Date.now()
+      pendingAudioSessionRef.current = null
+      return
+    }
+
+    if (isRecording || !wasRecording) return
+    if (pitchHistory.length === 0) return
+    if (ROUTES_WITH_OWN_SAVE_DIALOG.some((route) => pathname.startsWith(route))) return
+
+    const startedAt = recordingStartTimeRef.current
+    recordingStartTimeRef.current = null
+
+    // Oba warianty w sekundach. `recordingDuration` jest w ms — użyty wprost
+    // jako fallback zapisywał 30-sekundowe ćwiczenie jako 8 godzin 20 minut.
+    const durationSeconds = startedAt
+      ? Math.round((Date.now() - startedAt) / 1000)
+      : Math.round(recordingDuration / 1000)
+
+    const sessionType = pathname.startsWith("/train") ? "training" : "live"
+    // hasAudio=false na starcie; podnosimy je dopiero, gdy blob wyląduje w IndexedDB.
+    const sessionId = saveSession(pitchHistory, sessionType, durationSeconds, undefined, false)
+    pendingAudioSessionRef.current = sessionId
+  }, [isRecording, pitchHistory, saveSession, pathname, recordingDuration])
+
+  // MediaRecorder oddaje blob dopiero w onstop, czyli po zapisie sesji.
+  // Doklejamy audio, gdy przyjdzie, i dopiero wtedy oznaczamy hasAudio.
+  useEffect(() => {
+    const sessionId = pendingAudioSessionRef.current
+    if (!sessionId || !audioBlob) return
+    pendingAudioSessionRef.current = null
+
+    saveAudioToSession(sessionId).then((saved) => {
+      if (saved) markSessionAudioSaved(sessionId)
+      else console.warn("Audio not saved for session:", sessionId)
+    })
+  }, [audioBlob, saveAudioToSession, markSessionAudioSaved])
 
   const isActive = (path: string) => {
     if (path === "/") return pathname === "/"

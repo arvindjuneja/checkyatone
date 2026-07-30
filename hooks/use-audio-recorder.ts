@@ -7,6 +7,12 @@ import { trackEvent } from "@/lib/analytics"
 
 export type DetectionMode = "basic" | "pro"
 
+// Wizualizacje patrzą najdalej 6 s w przeszłość (PitchVisualizer VISIBLE_DURATION),
+// detekcja vibrata 500 ms. 30 s to pięciokrotny zapas.
+// Pełna historia i tak żyje w historyRef i idzie do zapisu — w stanie Reacta
+// trzymamy tylko okno, żeby koszt klatki nie rósł z długością nagrania.
+const LIVE_WINDOW_MS = 30_000
+
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
@@ -26,6 +32,7 @@ export function useAudioRecorder() {
   const animationFrameRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
   const historyRef = useRef<PitchData[]>([])
+  const liveWindowRef = useRef<PitchData[]>([])
   const voiceProfileRef = useRef<VoiceProfile | null>(null)
 
   const processAudio = useCallback(() => {
@@ -65,8 +72,19 @@ export function useAudioRecorder() {
       }
 
       setCurrentPitch(pitchData)
-      historyRef.current = [...historyRef.current, pitchData]
-      setPitchHistory(historyRef.current)
+
+      // push, nie spread: spread kopiował całą historię co klatkę, więc koszt
+      // rósł kwadratowo z długością nagrania.
+      historyRef.current.push(pitchData)
+
+      const cutoff = pitchData.timestamp - LIVE_WINDOW_MS
+      const liveWindow = liveWindowRef.current
+      liveWindow.push(pitchData)
+      let expired = 0
+      while (expired < liveWindow.length && liveWindow[expired].timestamp < cutoff) expired++
+      if (expired > 0) liveWindow.splice(0, expired)
+
+      setPitchHistory([...liveWindow])
     } else {
       setCurrentPitch(null)
     }
@@ -78,7 +96,7 @@ export function useAudioRecorder() {
     animationFrameRef.current = requestAnimationFrame(processAudio)
   }, [isPaused, sensitivity, detectionMode])
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (): Promise<MediaStream | null> => {
     try {
       setError(null)
 
@@ -116,19 +134,28 @@ export function useAudioRecorder() {
 
       startTimeRef.current = Date.now()
       historyRef.current = []
+      liveWindowRef.current = []
       setIsRecording(true)
       setIsPaused(false)
       setPitchHistory([])
       setRecordingDuration(0)
 
       animationFrameRef.current = requestAnimationFrame(processAudio)
+
+      // Zwracamy strumień, żeby wołający mógł podpiąć MediaRecorder do TEGO SAMEGO
+      // wejścia. Czytanie `isRecording` zaraz po tym wywołaniu nie zadziała —
+      // to stale closure i zawsze jest false.
+      return stream
     } catch (err) {
       console.error("Error starting recording:", err)
       setError("Nie udało się uzyskać dostępu do mikrofonu. Sprawdź uprawnienia.")
+      return null
     }
   }, [processAudio])
 
-  const stopRecording = useCallback(() => {
+  // Zwraca pełną historię, bo stan Reacta w trakcie nagrywania trzyma tylko
+  // okno LIVE_WINDOW_MS — wołający nie ma innego dostępu do całości.
+  const stopRecording = useCallback((): PitchData[] => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
@@ -149,10 +176,13 @@ export function useAudioRecorder() {
       audioContextRef.current = null
     }
 
+    // Po stopie stan dostaje PEŁNĄ historię — na tym stoi zapis sesji.
     setPitchHistory(historyRef.current)
     setIsRecording(false)
     setIsPaused(false)
     setCurrentPitch(null)
+
+    return historyRef.current
   }, [])
 
   const togglePause = useCallback(() => {
@@ -161,6 +191,7 @@ export function useAudioRecorder() {
 
   const reset = useCallback(() => {
     historyRef.current = []
+    liveWindowRef.current = []
     setPitchHistory([])
     setRecordingDuration(0)
     setCurrentPitch(null)

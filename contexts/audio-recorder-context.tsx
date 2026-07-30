@@ -16,7 +16,7 @@ interface AudioRecorderContextType {
   recordingDuration: number
   error: string | null
   startRecording: () => Promise<void>
-  stopRecording: () => void
+  stopRecording: () => PitchData[]
   togglePause: () => void
   reset: () => void
   hasRecording: boolean
@@ -56,38 +56,29 @@ export function AudioRecorderProvider({ children }: { children: ReactNode }) {
 
   // Wrap recording functions with analytics tracking and audio recording
   const startRecording = useCallback(async () => {
-    await audioRecorder.startRecording()
+    const stream = await audioRecorder.startRecording()
 
-    // Start audio recording with the same stream
-    if (audioRecorder.isRecording && streamRef.current === null) {
-      // Get the stream from the audio recorder's internal state
-      // We'll need to wait a tick for the stream to be available
-      setTimeout(async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          streamRef.current = stream
-          await audioRecording.startAudioRecording(stream)
-        } catch (error) {
-          console.error("Failed to start audio recording:", error)
-        }
-      }, 100)
+    // Ten sam strumień co analiza: bez drugiego getUserMedia (AGC by włączyło się
+    // domyślnie i nagranie rozjechałoby się z tym, co pokazuje detektor).
+    if (stream) {
+      streamRef.current = stream
+      await audioRecording.startAudioRecording(stream)
     }
 
     trackEvent("recording_started", "Recording")
   }, [audioRecorder, audioRecording])
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback((): PitchData[] => {
     const duration = Math.floor(audioRecorder.recordingDuration / 1000)
-    audioRecorder.stopRecording()
-    audioRecording.stopAudioRecording()
 
-    // Stop all tracks in the stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
+    // Najpierw domknięcie MediaRecordera, dopiero potem zabicie ścieżek —
+    // w odwrotnej kolejności ostatni chunk potrafi przepaść.
+    audioRecording.stopAudioRecording()
+    const fullHistory = audioRecorder.stopRecording()
+    streamRef.current = null
 
     trackEvent("recording_stopped", "Recording", undefined, duration)
+    return fullHistory
   }, [audioRecorder, audioRecording])
 
   const togglePause = useCallback(() => {

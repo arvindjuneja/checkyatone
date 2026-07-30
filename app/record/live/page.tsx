@@ -59,16 +59,18 @@ export default function LiveRecordingPage() {
 
   // Wrap stop recording to show save dialog
   const handleStopRecording = useCallback(() => {
-    // Save current pitch history and duration before stopping
-    setRecordedPitchHistory([...pitchHistory])
     setRecordedDuration(Math.floor(recordingDuration / 1000))
-    stopRecording()
 
-    // Show save dialog if there's data to save
-    if (pitchHistory.length > 0) {
+    // Pełna historia przychodzi ze stopRecording. Stan `pitchHistory` w trakcie
+    // nagrywania trzyma tylko okno wizualizacji, więc czytanie go tutaj
+    // obcięłoby zapis do ostatnich 30 sekund.
+    const fullHistory = stopRecording()
+    setRecordedPitchHistory(fullHistory)
+
+    if (fullHistory.length > 0) {
       setShowSaveDialog(true)
     }
-  }, [pitchHistory, recordingDuration, stopRecording])
+  }, [recordingDuration, stopRecording])
 
   return (
     <div className="space-y-4 pb-24">

@@ -23,7 +23,7 @@ export function SaveSessionDialog({
   duration,
   mode,
 }: SaveSessionDialogProps) {
-  const { saveSession } = useSessionLibrary()
+  const { saveSession, markSessionAudioSaved } = useSessionLibrary()
   const { audioBlob, saveAudioToSession } = useAudioRecorderContext()
   const [sessionName, setSessionName] = useState("")
   const [saving, setSaving] = useState(false)
@@ -31,15 +31,13 @@ export function SaveSessionDialog({
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Check if audio is available
-      const hasAudio = audioBlob !== null
+      // hasAudio ustawiamy dopiero po udanym zapisie bloba — deklarowanie go
+      // z góry dawało sesje z przyciskiem odtwarzania i pustym IndexedDB.
+      const sessionId = saveSession(pitchHistory, mode, duration, sessionName || undefined, false)
 
-      // Save the session and get the session ID
-      const sessionId = saveSession(pitchHistory, mode, duration, sessionName || undefined, hasAudio)
-
-      // If audio was recorded and session was saved, save the audio too
       if (sessionId && audioBlob) {
-        await saveAudioToSession(sessionId)
+        const saved = await saveAudioToSession(sessionId)
+        if (saved) markSessionAudioSaved(sessionId)
       }
 
       // Close dialog and reset

@@ -3,6 +3,21 @@
 import { useState, useRef, useCallback } from "react"
 import { saveSessionAudio } from "@/lib/audio-storage"
 
+// Safari/iOS nie zna audio/webm — konstruktor MediaRecorder rzuca NotSupportedError.
+// Pierwszy typ obsługiwany przez przeglądarkę wygrywa; "" oznacza domyślny typ silnika.
+const PREFERRED_MIME_TYPES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4;codecs=mp4a.40.2",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+]
+
+function pickMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return ""
+  return PREFERRED_MIME_TYPES.find((t) => MediaRecorder.isTypeSupported(t)) ?? ""
+}
+
 export function useAudioRecording() {
   const [isRecordingAudio, setIsRecordingAudio] = useState(false)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
@@ -13,10 +28,10 @@ export function useAudioRecording() {
 
   const startAudioRecording = useCallback(async (stream: MediaStream) => {
     try {
-      // Create MediaRecorder to record audio
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
-      })
+      const mimeType = pickMimeType()
+      const mediaRecorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
 
       audioChunksRef.current = []
 
@@ -27,7 +42,10 @@ export function useAudioRecording() {
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
+        // Typ bierzemy z samego recordera, nie z życzenia — po fallbacku
+        // na domyślny konstruktor może być inny niż wybrany wyżej.
+        const type = mediaRecorder.mimeType || mimeType || "audio/webm"
+        const blob = new Blob(audioChunksRef.current, { type })
         setAudioBlob(blob)
         setAudioURL(URL.createObjectURL(blob))
       }
