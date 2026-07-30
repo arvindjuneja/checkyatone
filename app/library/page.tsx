@@ -202,7 +202,7 @@ export default function LibraryPage() {
                       {session.averageAccuracy !== undefined && session.averageAccuracy > 0 && (
                         <>
                           <span>•</span>
-                          <span className="text-pitch-perfect">{session.averageAccuracy}% dokladnosci</span>
+                          <span className="text-pitch-perfect">wynik {session.averageAccuracy}</span>
                         </>
                       )}
                     </div>

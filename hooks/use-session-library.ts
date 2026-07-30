@@ -2,6 +2,15 @@ import { useState, useEffect, useCallback } from "react"
 import { type PitchData } from "@/lib/pitch-detector"
 import { trackEvent } from "@/lib/analytics"
 import { deleteSessionAudio } from "@/lib/audio-storage"
+import { analyzeIntonation, scoreIntonation, type IntonationReport } from "@/lib/scoring"
+
+/**
+ * Sesje zapisane przed wersją 2 mają `averageAccuracy` policzone starą miarą
+ * (odległość ramki do najbliższego dowolnego półtonu). Ta miara nie jest
+ * monotoniczna, więc jej wartości nie są porównywalne z nowymi i nie wolno
+ * ich mieszać na jednym wykresie trendu.
+ */
+export const CURRENT_SCORE_VERSION = 2
 
 export interface SessionMetadata {
   id: string
@@ -9,9 +18,13 @@ export interface SessionMetadata {
   date: Date
   mode: "live" | "training" | "analysis"
   duration: number
+  /** Liczba wykrytych nut. W sesjach sprzed wersji 2 to liczba RAMEK. */
   noteCount: number
+  /** 0–100. `undefined`, gdy nie dało się zmierzyć. */
   averageAccuracy?: number
   hasAudio?: boolean
+  scoreVersion?: number
+  intonation?: IntonationReport
 }
 
 export interface Session extends SessionMetadata {
@@ -56,10 +69,10 @@ export function useSessionLibrary() {
     ) => {
       if (pitchHistory.length === 0) return null
 
-      // Calculate average accuracy
-      const perfectCount = pitchHistory.filter((p) => Math.abs(p.cents) <= 10).length
-      const goodCount = pitchHistory.filter((p) => Math.abs(p.cents) > 10 && Math.abs(p.cents) <= 25).length
-      const averageAccuracy = ((perfectCount + goodCount * 0.7) / pitchHistory.length) * 100
+      // Ćwiczenia mają ton wzorcowy, więc tam offset transpozycyjny jest błędem.
+      // Przy swobodnym śpiewie nie jest i nie może obniżać wyniku.
+      const intonation = analyzeIntonation(pitchHistory)
+      const score = scoreIntonation(intonation, { referenceLocked: mode === "training" })
 
       const session: Session = {
         id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -67,9 +80,11 @@ export function useSessionLibrary() {
         date: new Date(),
         mode,
         duration,
-        noteCount: pitchHistory.length,
-        averageAccuracy: Math.round(averageAccuracy),
+        noteCount: intonation.noteCount,
+        averageAccuracy: score ?? undefined,
         hasAudio: hasAudio || false,
+        scoreVersion: CURRENT_SCORE_VERSION,
+        intonation,
         pitchHistory,
       }
 

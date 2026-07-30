@@ -1,13 +1,24 @@
 "use client"
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useMemo, useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { trackPageView } from "@/lib/analytics"
-import { useSessionLibrary, type Session } from "@/hooks/use-session-library"
+import { CURRENT_SCORE_VERSION, useSessionLibrary, type Session } from "@/hooks/use-session-library"
+import { analyzeIntonation, describeIntonation } from "@/lib/scoring"
 import { Button } from "@/components/ui/button"
 import { TimelineAnalysis } from "@/components/timeline-analysis"
 import { ArrowLeft, Play, Download, Trash2, BarChart3 } from "lucide-react"
 import { getSessionAudio } from "@/lib/audio-storage"
+
+function IntonationStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="bg-secondary/40 rounded-lg p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold tabular-nums">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{hint}</p>
+    </div>
+  )
+}
 
 function SessionDetailContent() {
   const searchParams = useSearchParams()
@@ -19,6 +30,15 @@ function SessionDetailContent() {
 
   const sessionId = searchParams.get("id")
   const sessionMeta = sessions.find(s => s.id === sessionId)
+
+  // Analiza jest derywatem konturu, nie zapisanym werdyktem: sesje sprzed
+  // wersji 2 przeliczają się tutaj poprawioną miarą, zamiast zostać z liczbą,
+  // której nie da się obronić.
+  const intonation = useMemo(() => {
+    if (fullSession?.intonation) return fullSession.intonation
+    if (fullSession?.pitchHistory?.length) return analyzeIntonation(fullSession.pitchHistory)
+    return null
+  }, [fullSession])
 
   useEffect(() => {
     if (sessionMeta && sessionId) {
@@ -187,12 +207,13 @@ function SessionDetailContent() {
           <p className="text-2xl font-bold">{session.duration ? formatDuration(session.duration) : "-"}</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
-          <p className="text-xs text-muted-foreground mb-1">Dokladnosc</p>
+          <p className="text-xs text-muted-foreground mb-1">Wynik</p>
           <p className="text-2xl font-bold text-pitch-perfect">
-            {session.averageAccuracy !== undefined && session.averageAccuracy > 0
-              ? `${session.averageAccuracy}%`
-              : "-"}
+            {session.averageAccuracy !== undefined ? session.averageAccuracy : "—"}
           </p>
+          {session.scoreVersion !== CURRENT_SCORE_VERSION && session.averageAccuracy !== undefined && (
+            <p className="text-[10px] text-muted-foreground mt-1">zmierzone starą miarą</p>
+          )}
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Liczba nut</p>
@@ -214,6 +235,49 @@ function SessionDetailContent() {
             Odtwarzacz
           </h3>
           <audio src={audioUrl} controls className="w-full" />
+        </div>
+      )}
+
+      {/* Cztery liczby: jedna liczba nie odróżnia „czysto, ale nisko"
+          od „chaotycznie", a to są dwie różne recepty. */}
+      {intonation && !intonation.insufficientData && (
+        <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Co mowia liczby
+          </h3>
+
+          <p className="text-sm leading-relaxed">{describeIntonation(intonation)}</p>
+
+          {intonation.tonalCenterFound ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <IntonationStat
+                label="Offset"
+                value={`${intonation.offsetCents > 0 ? "+" : ""}${Math.round(intonation.offsetCents)}¢`}
+                hint="calosc wzgledem stroju"
+              />
+              <IntonationStat
+                label="Rozrzut"
+                value={`${Math.round(intonation.spreadCents)}¢`}
+                hint="jak bardzo nuty sie rozjezdzaja"
+              />
+              <IntonationStat
+                label="Dryf"
+                value={`${intonation.driftCentsPerMinute > 0 ? "+" : ""}${Math.round(intonation.driftCentsPerMinute)}¢/min`}
+                hint="czy strój ucieka w czasie"
+              />
+              <IntonationStat
+                label="Interwaly"
+                value={`${Math.round(intonation.intervalErrorCents)}¢`}
+                hint="odleglosci miedzy nutami"
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nie udalo sie ustalic stroju — odchylki poszczegolnych nut sa na tyle duze,
+              ze nie da sie orzec, w ktore dzwieki celowales. Sprobuj wolniej i krocej.
+            </p>
+          )}
         </div>
       )}
 

@@ -275,7 +275,7 @@ export default function HomePage() {
                     <h3 className="font-medium truncate">{session.name}</h3>
                     {session.averageAccuracy !== undefined && session.averageAccuracy > 0 && (
                       <span className="text-xs text-pitch-perfect bg-pitch-perfect/10 px-2 py-0.5 rounded-full">
-                        {session.averageAccuracy}%
+                        {session.averageAccuracy}
                       </span>
                     )}
                   </div>

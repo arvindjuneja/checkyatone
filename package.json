@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "eval": "node --import ./scripts/ts-register.mjs scripts/eval-pitch.ts"
+    "eval": "node --import ./scripts/ts-register.mjs scripts/eval-pitch.ts",
+    "eval:scoring": "node --import ./scripts/ts-register.mjs scripts/eval-scoring.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

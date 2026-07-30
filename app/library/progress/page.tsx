@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { trackPageView, trackEvent } from "@/lib/analytics"
-import { useSessionLibrary } from "@/hooks/use-session-library"
+import { CURRENT_SCORE_VERSION, useSessionLibrary } from "@/hooks/use-session-library"
 import { getVocalRangeFromSessions } from "@/hooks/use-vocal-range"
 import { VocalRangeDisplay } from "@/components/vocal-range-display"
 import { ProgressCharts } from "@/components/progress-charts"
@@ -57,9 +57,16 @@ export default function ProgressPage() {
   // Calculate statistics
   const totalSessions = filteredSessions.length
   const totalDuration = filteredSessions.reduce((acc, s) => acc + (s.duration || 0), 0)
-  const avgAccuracy = filteredSessions.length > 0
-    ? Math.round(filteredSessions.reduce((acc, s) => acc + (s.averageAccuracy || 0), 0) / filteredSessions.length)
-    : 0
+  // Wyniki sprzed wersji 2 pochodzą z niemonotonicznej miary i nie są
+  // porównywalne z obecnymi — uśrednianie ich razem produkuje trend, którego
+  // nie ma. Liczymy tylko sesje zmierzone obecną miarą i mówimy ile pominięto.
+  const scoredSessions = filteredSessions.filter(
+    (s) => s.scoreVersion === CURRENT_SCORE_VERSION && s.averageAccuracy !== undefined,
+  )
+  const legacySessionCount = filteredSessions.length - scoredSessions.length
+  const avgAccuracy = scoredSessions.length > 0
+    ? Math.round(scoredSessions.reduce((acc, s) => acc + (s.averageAccuracy ?? 0), 0) / scoredSessions.length)
+    : null
 
   // Calculate practice streak (always use all sessions for streak)
   const calculateStreak = () => {
@@ -193,9 +200,14 @@ export default function ProgressPage() {
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Sr. dokladnosc</span>
+            <span className="text-xs text-muted-foreground">Sr. wynik</span>
           </div>
-          <p className="text-2xl font-bold">{avgAccuracy}%</p>
+          <p className="text-2xl font-bold">{avgAccuracy ?? "—"}</p>
+          {legacySessionCount > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {legacySessionCount} sesji zmierzono stara miara i pominieto
+            </p>
+          )}
         </div>
 
         <div className="bg-card rounded-xl p-4 border border-border">
