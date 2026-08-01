@@ -39,6 +39,13 @@ export default function RangeMeasurePage() {
   const framesRef = useRef<number[]>([])
   const stepRef = useRef<Step>("intro")
   stepRef.current = step
+  // stopRecording z kontekstu dostaje nową tożsamość przy każdym renderze
+  // providera (a provider renderuje się co ramkę podczas nagrywania).
+  // Efekt zależny od niej odpalałby cleanup CO RENDER — czyli zabijał
+  // nagranie natychmiast po starcie pomiaru. Strażnik działa przez ref
+  // i pustą listę zależności: cleanup wyłącznie przy odmontowaniu.
+  const stopRecordingRef = useRef(stopRecording)
+  stopRecordingRef.current = stopRecording
 
   useEffect(() => {
     document.title = "Vocal Coach - Pomiar zakresu"
@@ -80,11 +87,20 @@ export default function RangeMeasurePage() {
     trackEvent("range_measured", "Training", undefined, Math.round(highMidi - lowMidi))
   }, [step, lowMidi, highMidi])
 
+  const [micError, setMicError] = useState(false)
+
   const beginStep = useCallback(
     async (next: "low" | "high") => {
       framesRef.current = []
       setProgress(0)
-      if (!isRecording) await startRecording()
+      setMicError(false)
+      if (!isRecording) {
+        const ok = await startRecording()
+        if (!ok) {
+          setMicError(true)
+          return
+        }
+      }
       setStep(next)
     },
     [isRecording, startRecording],
@@ -99,7 +115,7 @@ export default function RangeMeasurePage() {
     setStep("intro")
   }, [isRecording, stopRecording])
 
-  useEffect(() => () => { if (stepRef.current !== "done") stopRecording() }, [stopRecording])
+  useEffect(() => () => { if (stepRef.current !== "done") stopRecordingRef.current() }, [])
 
   const spanOk = lowMidi !== null && highMidi !== null && highMidi - lowMidi >= 5
 
@@ -131,6 +147,11 @@ export default function RangeMeasurePage() {
             <Mic className="w-5 h-5" />
             Zaczynamy
           </Button>
+          {micError && (
+            <p className="text-sm text-pitch-off">
+              Brak dostępu do mikrofonu. Sprawdź uprawnienia i spróbuj ponownie.
+            </p>
+          )}
         </div>
       )}
 

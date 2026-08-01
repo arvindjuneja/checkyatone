@@ -5,8 +5,11 @@
  *
  * Oś X to czas ćwiczenia (znany z góry — aplikacja dyktuje tempo), oś Y to
  * wysokość w MIDI. Ślad rysuje się z ramek zakotwiczonych w recordingStartMs,
- * czyli dokładnie w tej samej domenie czasu, w której scoring liczy okna nut —
- * to, co widzisz, jest tym, co zostanie ocenione.
+ * w tej samej domenie czasu, w której scoring liczy okna nut.
+ *
+ * Kolor śladu to feedback CHWILOWY (ta ramka w paśmie / poza pasmem).
+ * Werdykt liczony jest po medianie nuty z pominięciem ataku, więc pojedynczy
+ * czerwony odcinek nie przesądza o pudle — i odwrotnie.
  */
 
 import { useEffect, useRef } from "react"

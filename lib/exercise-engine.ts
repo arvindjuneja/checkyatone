@@ -185,8 +185,20 @@ export function frequencyToMidiFloat(frequency: number): number {
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 export function midiToLabel(midi: number): string {
+  const { note, octave } = midiToNoteName(midi)
+  return `${note}${octave}`
+}
+
+/**
+ * Rozbicie MIDI na nazwę i oktawę. Wołający NIE parsują etykiety z powrotem —
+ * `parseInt(label.slice(-1))` łamie się na oktawach spoza 0–9 i na „C-1".
+ */
+export function midiToNoteName(midi: number): { note: string; octave: number } {
   const rounded = Math.round(midi)
-  return `${NOTE_NAMES[((rounded % 12) + 12) % 12]}${Math.floor(rounded / 12) - 1}`
+  return {
+    note: NOTE_NAMES[((rounded % 12) + 12) % 12],
+    octave: Math.floor(rounded / 12) - 1,
+  }
 }
 
 /**
@@ -201,7 +213,9 @@ export function robustExtremeMidi(frequencies: number[], side: "low" | "high"): 
     .filter((f) => f >= 50 && f <= 2100)
     .map(frequencyToMidiFloat)
     .sort((a, b) => a - b)
-  if (midis.length < 10) return null
+  // Minimum 20: przy 10 ramkach 90. percentyl to indeks 9 = maksimum,
+  // czyli percentyl przestaje chronić przed pojedynczym wystrzałem.
+  if (midis.length < 20) return null
   const index = side === "low" ? Math.floor(midis.length * 0.1) : Math.floor(midis.length * 0.9)
   return midis[index]
 }

@@ -18,6 +18,7 @@ import {
   generateExercise,
   loadMeasuredRange,
   midiToLabel,
+  midiToNoteName,
   planSession,
   scoreExercise,
   type ExerciseCategory,
@@ -58,12 +59,30 @@ export function ExerciseTrainer() {
   const [result, setResult] = useState<ExerciseResult | null>(null)
   const [completed, setCompleted] = useState<CompletedStep[]>([])
   const [countdownLeft, setCountdownLeft] = useState(0)
+  const [micError, setMicError] = useState(false)
 
   const synthesizerRef = useRef<AudioSynthesizer | null>(null)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const tickerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pitchHistoryRef = useRef(pitchHistory)
   pitchHistoryRef.current = pitchHistory
+
+  /**
+   * Epoka sesji. `runStep` zawiera await (podgląd z syntezatora) i łańcuch
+   * timerów; „Zakończ" w trakcie podglądu nie ma jak anulować zawisłego
+   * awaita, więc kontynuacja wskrzeszałaby maszynę stanów po śmierci sesji:
+   * scoring na martwym nagraniu (fałszywe 0/N), a przy pierwszym kroku pusty
+   * ekran (phase=singing przy plan=null). Każde zakończenie/restart podbija
+   * epokę; kontynuacja i każdy timer sprawdzają, czy ich epoka wciąż żyje.
+   */
+  const epochRef = useRef(0)
+
+  // Tożsamości funkcji kontekstu zmieniają się co render providera — do
+  // cleanupu odmontowania trzymamy je w refach (pusta lista zależności).
+  const stopRecordingRef = useRef(stopRecording)
+  stopRecordingRef.current = stopRecording
+  const isRecordingRef = useRef(isRecording)
+  isRecordingRef.current = isRecording
 
   useEffect(() => {
     setRange(loadMeasuredRange())
@@ -72,11 +91,14 @@ export function ExerciseTrainer() {
       synthesizerRef.current = new AudioSynthesizer()
     }
     return () => {
+      epochRef.current++
       timersRef.current.forEach(clearTimeout)
       if (tickerRef.current) clearInterval(tickerRef.current)
       synthesizerRef.current?.close()
       synthesizerRef.current = null
       void stayAwake(false)
+      // Nawigacja w trakcie sesji nie może zostawić żywego mikrofonu.
+      if (isRecordingRef.current) stopRecordingRef.current()
     }
   }, [])
 
@@ -97,6 +119,7 @@ export function ExerciseTrainer() {
   const runStep = useCallback(
     async (currentPlan: SessionPlan, index: number) => {
       clearTimers()
+      const epoch = epochRef.current
       const generated = generateExercise(currentPlan.pattern, currentPlan.roots[index])
       setExercise(generated)
       setResult(null)
@@ -107,12 +130,15 @@ export function ExerciseTrainer() {
       const synth = synthesizerRef.current
       if (synth) {
         const toneNotes = generated.notes.map((n) => {
-          const label = midiToLabel(n.midi)
-          const octave = parseInt(label.slice(-1), 10)
-          return { note: label.slice(0, -1), octave, duration: n.durationMs }
+          const { note, octave } = midiToNoteName(n.midi)
+          return { note, octave, duration: n.durationMs }
         })
         await synth.playNoteSequence(toneNotes, 80)
       }
+
+      // Sesja zakończona/zrestartowana w trakcie podglądu — martwy krok
+      // nie ma prawa dotknąć maszyny stanów.
+      if (epochRef.current !== epoch) return
 
       // Odliczanie — przez ten czas ogon głośnika wybrzmiewa poza oknami oceny.
       setPhase("countdown")
@@ -123,6 +149,7 @@ export function ExerciseTrainer() {
       }
 
       after(COUNTDOWN_MS, () => {
+        if (epochRef.current !== epoch) return
         const anchor = Date.now()
         setRecordingStartMs(anchor)
         setElapsedMs(0)
@@ -133,6 +160,7 @@ export function ExerciseTrainer() {
         }, 50)
 
         after(generated.totalMs + RESULT_TAIL_MS, () => {
+          if (epochRef.current !== epoch) return
           if (tickerRef.current) {
             clearInterval(tickerRef.current)
             tickerRef.current = null
@@ -157,7 +185,15 @@ export function ExerciseTrainer() {
       setPlan(newPlan)
       setRootIndex(0)
       setCompleted([])
-      if (!isRecording) await startRecording()
+      if (!isRecording) {
+        const ok = await startRecording()
+        if (!ok) {
+          setMicError(true)
+          setPlan(null)
+          return
+        }
+      }
+      setMicError(false)
       void stayAwake(true)
       trackEvent("exercise_session_started", "Training", pattern.id, newPlan.roots.length)
       void runStep(newPlan, 0)
@@ -167,6 +203,7 @@ export function ExerciseTrainer() {
 
   const nextStep = useCallback(() => {
     if (!plan || !result) return
+    epochRef.current++
     const done = [...completed, { rootMidi: plan.roots[rootIndex], result }]
     setCompleted(done)
 
@@ -183,10 +220,12 @@ export function ExerciseTrainer() {
 
   const repeatStep = useCallback(() => {
     if (!plan) return
+    epochRef.current++
     void runStep(plan, rootIndex)
   }, [plan, rootIndex, runStep])
 
   const endSession = useCallback(() => {
+    epochRef.current++
     clearTimers()
     synthesizerRef.current?.stopAllSounds()
     void stayAwake(false)
@@ -200,6 +239,7 @@ export function ExerciseTrainer() {
   }, [clearTimers, isRecording, stopRecording, completed.length, result])
 
   const backToPick = useCallback(() => {
+    epochRef.current++
     clearTimers()
     if (isRecording) stopRecording()
     setPhase("pick")
@@ -240,6 +280,12 @@ export function ExerciseTrainer() {
               <Link href="/train/range"><Ruler className="w-4 h-4" />Zmierz ponownie</Link>
             </Button>
           </div>
+        )}
+        {micError && (
+          <p className="text-sm text-pitch-off bg-pitch-off/10 rounded-xl px-4 py-3">
+            Brak dostępu do mikrofonu — bez niego ćwiczenie nie ma jak ocenić śpiewu.
+            Sprawdź uprawnienia i spróbuj ponownie.
+          </p>
         )}
         {categories.map((category) => (
           <div key={category} className="space-y-2">

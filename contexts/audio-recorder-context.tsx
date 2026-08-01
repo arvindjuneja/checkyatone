@@ -15,7 +15,7 @@ interface AudioRecorderContextType {
   pitchHistory: PitchData[]
   recordingDuration: number
   error: string | null
-  startRecording: () => Promise<void>
+  startRecording: () => Promise<boolean>
   stopRecording: () => PitchData[]
   togglePause: () => void
   reset: () => void
@@ -55,7 +55,7 @@ export function AudioRecorderProvider({ children }: { children: ReactNode }) {
   }, [audioRecorder.currentPitch, audioRecorder.isRecording, addPitch])
 
   // Wrap recording functions with analytics tracking and audio recording
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (): Promise<boolean> => {
     const stream = await audioRecorder.startRecording()
 
     // Ten sam strumień co analiza: bez drugiego getUserMedia (AGC by włączyło się
@@ -66,6 +66,9 @@ export function AudioRecorderProvider({ children }: { children: ReactNode }) {
     }
 
     trackEvent("recording_started", "Recording")
+    // false = brak dostępu do mikrofonu; wołający MUSI to obsłużyć, inaczej
+    // sesja biegnie bez nagrania i raportuje 0/N jak fałszywy wynik.
+    return stream !== null
   }, [audioRecorder, audioRecording])
 
   const stopRecording = useCallback((): PitchData[] => {

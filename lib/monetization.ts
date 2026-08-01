@@ -84,6 +84,15 @@ export const ADMOB_APP_IDS = {
 
 let initialized = false
 
+/**
+ * Epoka banera. showBanner ma w środku dwa awaity (dynamic import +
+ * AdMob.initialize) — nawigacja z /library na ekran treningowy w trakcie
+ * inicjalizacji wywoła hideBanner PRZED zakończeniem showBanner, a spóźniona
+ * kontynuacja pokazałaby baner na ekranie śpiewania. Każde hide unieważnia
+ * wszystkie zawisłe show.
+ */
+let bannerEpoch = 0
+
 async function ensureInitialized(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
   if (initialized) return true
@@ -101,11 +110,20 @@ async function ensureInitialized(): Promise<boolean> {
 /** Pokazuje banner na dole ekranu. No-op na webie i przy adFree. */
 export async function showBanner(): Promise<void> {
   if (isAdFree()) return
+  const adId = bannerAdUnitId()
+  if (!adId) {
+    // USE_TEST_ADS=false bez uzupełnienia PROD_* — patrz docs/PUBLIKACJA.md.
+    console.warn("Brak produkcyjnego ID banera AdMob — reklama pominięta.")
+    return
+  }
+  const epoch = ++bannerEpoch
   if (!(await ensureInitialized())) return
+  if (epoch !== bannerEpoch) return
   try {
     const { AdMob, BannerAdPosition, BannerAdSize } = await import("@capacitor-community/admob")
+    if (epoch !== bannerEpoch) return
     await AdMob.showBanner({
-      adId: bannerAdUnitId(),
+      adId,
       adSize: BannerAdSize.ADAPTIVE_BANNER,
       position: BannerAdPosition.BOTTOM_CENTER,
       margin: 0,
@@ -117,6 +135,7 @@ export async function showBanner(): Promise<void> {
 }
 
 export async function hideBanner(): Promise<void> {
+  bannerEpoch++
   if (!initialized) return
   try {
     const { AdMob } = await import("@capacitor-community/admob")

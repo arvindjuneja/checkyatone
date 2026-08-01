@@ -31,6 +31,13 @@ Poniżej wyłącznie to, czego NIE dało się zrobić bez Twoich kont.
    - `android/app/src/main/AndroidManifest.xml`: `APPLICATION_ID`
    - `ios/App/App/Info.plist`: `GADApplicationIdentifier`
 
+### SKAdNetwork (iOS)
+
+Info.plist zawiera tylko identyfikator Google — wystarcza do buildu. Przed
+publikacją wklej PEŁNĄ aktualną listę SKAdNetworkItems z dokumentacji AdMob
+(https://developers.google.com/admob/ios/quick-start) — bez niej część sieci
+reklamowych nie zliczy konwersji i eCPM będzie niższy.
+
 ## 3. Subskrypcja „usuń reklamy"
 
 1. App Store Connect → aplikacja → Subscriptions → utwórz subskrypcję roczną
