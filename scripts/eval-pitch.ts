@@ -15,6 +15,8 @@
 
 import { detectPitch, resetPitchTracking, noteToFrequency } from "../lib/pitch-detector"
 import { detectPitchPro, resetProPitchTracking } from "../lib/pitch-detector-pro"
+import { applyHannWindow, detectF0, fundamentalPresence } from "../lib/yin"
+import { TUNINGS } from "../lib/guitar"
 
 // ----- Generator sygnału -----
 
@@ -84,6 +86,78 @@ function synthesizeTone(
     }
   }
 
+  return buffer
+}
+
+/**
+ * Szarpana struna gitarowa. Trzy cechy odróżniające od głosu, każda jest
+ * osobną pułapką oktawową:
+ *
+ *  - INHARMONICZNOŚĆ: sztywność struny przesuwa n-tą harmoniczną do
+ *    n·f0·√(1+B·n²). Dla stalowej struny B ≈ 1e-4…5e-4. Detektor szukający
+ *    idealnych wielokrotności widzi "rozstrojony" szereg.
+ *  - OBWIEDNIA CZASOWA: wyższe harmoniczne gasną szybciej, więc pod koniec
+ *    wybrzmienia widmo robi się ubogie — inny sygnał niż w ataku.
+ *  - MOCNA h2: na niskich strunach druga harmoniczna bywa głośniejsza od
+ *    fundamentalnej (rezonans pudła) — klasyczna pułapka oktawy w górę.
+ */
+function synthesizePluckedString(
+  f0: number,
+  sampleRate: number,
+  length: number,
+  /** Czas od szarpnięcia (s) — decyduje, ile harmonicznych jeszcze żyje. */
+  timeSincePluck: number,
+  inharmonicityB = 3e-4,
+  strongSecondHarmonic = false,
+): Float32Array {
+  const buffer = new Float32Array(length)
+  const harmonics = 10
+
+  for (let n = 1; n <= harmonics; n++) {
+    const fn = n * f0 * Math.sqrt(1 + inharmonicityB * n * n)
+    if (fn >= sampleRate / 2) break
+
+    // Amplituda 1/n^0.8; wyższe harmoniczne gasną szybciej (τ ~ 1/n).
+    let amplitude = Math.pow(n, -0.8) * Math.exp(-timeSincePluck * (0.8 + 0.9 * n))
+    if (strongSecondHarmonic && n === 2) amplitude *= 2.2
+    if (strongSecondHarmonic && n === 1) amplitude *= 0.55
+
+    // Faza deterministyczna, ale nietrywialna — struny nie startują w zerze.
+    const phase0 = (n * 2.399963) % (2 * Math.PI)
+    for (let i = 0; i < length; i++) {
+      const t = timeSincePluck + i / sampleRate
+      buffer[i] += amplitude * Math.sin(2 * Math.PI * fn * t + phase0)
+    }
+  }
+
+  // Normalizacja do sensownego poziomu wejściowego.
+  let peak = 0
+  for (let i = 0; i < length; i++) peak = Math.max(peak, Math.abs(buffer[i]))
+  if (peak > 0) for (let i = 0; i < length; i++) buffer[i] = (buffer[i] / peak) * 0.4
+
+  return buffer
+}
+
+/**
+ * Głos z dominującą drugą harmoniczną — częsty przy mocnej fonacji.
+ * Pułapka oktawy W GÓRĘ: energia sugeruje 2·f0, okresowość mówi f0.
+ */
+function synthesizeStrongH2Voice(
+  f0: number,
+  sampleRate: number,
+  length: number,
+  startPhaseSeconds: number,
+): Float32Array {
+  const amplitudes = [0.45, 1.0, 0.5, 0.35, 0.25, 0.18, 0.12, 0.08]
+  const buffer = new Float32Array(length)
+  for (let i = 0; i < length; i++) {
+    const t = startPhaseSeconds + i / sampleRate
+    let sample = 0
+    for (let n = 1; n <= amplitudes.length; n++) {
+      sample += amplitudes[n - 1] * Math.sin(2 * Math.PI * f0 * n * t)
+    }
+    buffer[i] = sample * 0.2
+  }
   return buffer
 }
 
@@ -253,6 +327,287 @@ function printStats(label: string, stats: Stats): void {
   console.log(`  ${label.padEnd(34)} RPA ${rpa}   oktawy ${oct}   med ${med}   wykryte ${det}`)
 }
 
+// ----- Gitara -----
+
+/**
+ * Kopia verbatim autoCorrelate z components/guitar-tuner.tsx sprzed wymiany
+ * silnika — trzymana tu jako baseline, żeby różnica była zmierzona, a nie
+ * deklarowana. Wady widoczne w samym kodzie: po pierwszym zboczu bierze
+ * GLOBALNE maksimum ACF (piki w T, 2T, 3T są prawie równe — loteria
+ * oktawowa) i nie ogranicza lagu (wynik może być dowolną liczbą).
+ */
+function legacyTunerAutoCorrelate(buffer: Float32Array, sampleRate: number): number {
+  let rms = 0
+  for (let i = 0; i < buffer.length; i++) rms += buffer[i] * buffer[i]
+  rms = Math.sqrt(rms / buffer.length)
+  if (rms < 0.01) return -1
+
+  let r1 = 0
+  let r2 = buffer.length - 1
+  const threshold = 0.2
+  for (let i = 0; i < buffer.length / 2; i++) {
+    if (Math.abs(buffer[i]) < threshold) { r1 = i; break }
+  }
+  for (let i = 1; i < buffer.length / 2; i++) {
+    if (Math.abs(buffer[buffer.length - i]) < threshold) { r2 = buffer.length - i; break }
+  }
+
+  const buf2 = buffer.slice(r1, r2)
+  const c = new Array(buf2.length).fill(0)
+  for (let i = 0; i < buf2.length; i++) {
+    for (let j = 0; j < buf2.length - i; j++) c[i] += buf2[j] * buf2[j + i]
+  }
+
+  let d = 0
+  while (c[d] > c[d + 1]) d++
+  let maxval = -1
+  let maxpos = -1
+  for (let i = d; i < buf2.length; i++) {
+    if (c[i] > maxval) { maxval = c[i]; maxpos = i }
+  }
+  let T0 = maxpos
+
+  const x1 = c[T0 - 1]
+  const x2 = c[T0]
+  const x3 = c[T0 + 1]
+  const a = (x1 + x3 - 2 * x2) / 2
+  const b = (x3 - x1) / 2
+  if (a) T0 = T0 - b / (2 * a)
+
+  return sampleRate / T0
+}
+
+/** Zakres tunera: pół tonu pod najniższą struną tuningów (D2), z górką na flażolety. */
+const TUNER_MIN_HZ = 60
+const TUNER_MAX_HZ = 1200
+
+interface GuitarCase {
+  label: string
+  truth: number
+  buffer: Float32Array
+  sampleRate: number
+}
+
+function buildGuitarCases(bufferSize: number): GuitarCase[] {
+  const uniqueStrings = new Map<string, number>()
+  for (const tuning of TUNINGS) {
+    for (const s of tuning.strings) uniqueStrings.set(`${s.note}${s.octave}`, s.frequency)
+  }
+
+  const cases: GuitarCase[] = []
+  for (const sampleRate of [44100, 48000]) {
+    for (const [label, truth] of uniqueStrings) {
+      // Trzy punkty wybrzmienia: tuż po ataku, środek, ogon.
+      for (const timeSincePluck of [0.15, 0.5, 1.0]) {
+        cases.push({
+          label: `${label} @ ${(sampleRate / 1000).toFixed(1)}k t=${timeSincePluck}`,
+          truth,
+          buffer: synthesizePluckedString(truth, sampleRate, bufferSize, timeSincePluck),
+          sampleRate,
+        })
+      }
+      // Niskie struny dodatkowo z dominującą h2 (rezonans pudła).
+      if (truth < 120) {
+        cases.push({
+          label: `${label} @ ${(sampleRate / 1000).toFixed(1)}k h2!`,
+          truth,
+          buffer: synthesizePluckedString(truth, sampleRate, bufferSize, 0.3, 3e-4, true),
+          sampleRate,
+        })
+      }
+      // Szum pokoju: tuner nie pracuje w komorze bezechowej.
+      for (const snrDb of [20, 12]) {
+        const noisy = synthesizePluckedString(truth, sampleRate, bufferSize, 0.5)
+        addNoise(noisy, snrDb, 0xace + Math.round(truth))
+        cases.push({
+          label: `${label} @ ${(sampleRate / 1000).toFixed(1)}k SNR${snrDb}`,
+          truth,
+          buffer: noisy,
+          sampleRate,
+        })
+      }
+    }
+  }
+  return cases
+}
+
+function addNoise(buffer: Float32Array, snrDb: number, seed: number): void {
+  let signalPower = 0
+  for (let i = 0; i < buffer.length; i++) signalPower += buffer[i] * buffer[i]
+  signalPower /= buffer.length
+  const noiseAmplitude = Math.sqrt((signalPower / Math.pow(10, snrDb / 10)) * 3)
+  const rng = makeRng(seed)
+  for (let i = 0; i < buffer.length; i++) buffer[i] += (rng() * 2 - 1) * noiseAmplitude
+}
+
+function evaluateGuitarEngine(
+  name: string,
+  run: (c: GuitarCase) => number | null,
+  cases: GuitarCase[],
+  verbose: boolean,
+): void {
+  let octaveErrors = 0
+  let inTolerance = 0
+  let missed = 0
+  const failures: string[] = []
+
+  for (const c of cases) {
+    const detected = run(c)
+    if (detected === null || detected <= 0 || !Number.isFinite(detected)) {
+      missed++
+      failures.push(`${c.label}: brak detekcji`)
+      continue
+    }
+    const err = centsError(detected, c.truth)
+    if (Math.abs(err) <= 50) inTolerance++
+    if (isOctaveError(detected, c.truth)) {
+      octaveErrors++
+      failures.push(`${c.label}: ${c.truth.toFixed(1)} → ${detected.toFixed(1)} Hz (×${(detected / c.truth).toFixed(2)})`)
+    } else if (Math.abs(err) > 50) {
+      failures.push(`${c.label}: ${c.truth.toFixed(1)} → ${detected.toFixed(1)} Hz (${err.toFixed(0)}¢)`)
+    }
+  }
+
+  const rpa = ((100 * inTolerance) / cases.length).toFixed(1)
+  console.log(
+    `  ${name.padEnd(34)} RPA ${`${rpa}%`.padStart(7)}   oktawy ${`${octaveErrors}/${cases.length}`.padStart(8)}   brak ${String(missed).padStart(3)}`,
+  )
+  if (verbose) {
+    for (const f of failures.slice(0, 12)) console.log(`       ✗ ${f}`)
+    if (failures.length > 12) console.log(`       … i ${failures.length - 12} więcej`)
+  }
+}
+
+/** Chroma (nazwa nuty) — tor gry akordowej porównuje wyłącznie to. */
+function chromaOf(frequency: number): string {
+  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+  const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
+  return names[((midi % 12) + 12) % 12]
+}
+
+function runGuitarSection(): void {
+  console.log("\n═══ GITARA ═══")
+
+  // Tuner pracuje na buforze 4096 (fftSize analysera).
+  const tunerCases = buildGuitarCases(4096)
+  console.log(`  ${tunerCases.length} przypadków: struny 6 tuningów × 2 sample rate × punkty wybrzmienia\n`)
+
+  evaluateGuitarEngine(
+    "tuner PRZED (autoCorrelate)",
+    (c) => legacyTunerAutoCorrelate(c.buffer, c.sampleRate),
+    tunerCases,
+    false,
+  )
+  // Próg 0,85 = tylko ścieżka progowa YIN, identycznie jak w produkcie.
+  // Fallback z globalnego minimum ma pewność <0,85 i jest odrzucany.
+  const TUNER_CONFIDENCE_GATE = 0.85
+  const FUNDAMENTAL_FLOOR = 0.05
+  const tunerEngine = (buffer: Float32Array, sampleRate: number): number | null => {
+    const r = detectF0(buffer, sampleRate, { minFrequency: TUNER_MIN_HZ, maxFrequency: TUNER_MAX_HZ })
+    if (!r || r.confidence < TUNER_CONFIDENCE_GATE) return null
+    if (fundamentalPresence(applyHannWindow(buffer), sampleRate, r.frequency) < FUNDAMENTAL_FLOOR) return null
+    return r.frequency
+  }
+  evaluateGuitarEngine(
+    "tuner PO (YIN 0,85 + obecność f0)",
+    (c) => tunerEngine(c.buffer, c.sampleRate),
+    tunerCases,
+    true,
+  )
+
+  // Dwie struny naraz (sympatyczne wybrzmienie, niedotłumiona struna).
+  // Poprawne zachowanie tunera: MILCZEĆ albo podać jedną z brzmiących strun.
+  // Zmyślona trzecia częstotliwość = strojenie do dźwięku, którego nikt nie gra.
+  const dyads: [number, number][] = [
+    [82.41, 110.0],   // E2+A2
+    [110.0, 146.83],  // A2+D3
+    [146.83, 196.0],  // D3+G3
+    [196.0, 246.94],  // G3+B3
+    [246.94, 329.63], // B3+E4
+  ]
+  let dyadAbstain = 0
+  let dyadOneString = 0
+  let dyadGarbage = 0
+  const garbageExamples: string[] = []
+  for (const sampleRate of [44100, 48000]) {
+    for (const [f1, f2] of dyads) {
+      for (const t of [0.15, 0.5]) {
+        const a = synthesizePluckedString(f1, sampleRate, 4096, t)
+        const b = synthesizePluckedString(f2, sampleRate, 4096, t)
+        const mix = new Float32Array(4096)
+        for (let i = 0; i < 4096; i++) mix[i] = 0.6 * a[i] + 0.5 * b[i]
+
+        const detected = tunerEngine(mix, sampleRate)
+        if (detected === null) { dyadAbstain++; continue }
+        const near = (target: number) => Math.abs(centsError(detected, target)) <= 50
+        if (near(f1) || near(f2)) dyadOneString++
+        else {
+          dyadGarbage++
+          garbageExamples.push(`${f1}+${f2} @ ${sampleRate}: → ${detected.toFixed(1)} Hz`)
+        }
+      }
+    }
+  }
+  const dyadTotal = dyadAbstain + dyadOneString + dyadGarbage
+  console.log(
+    `  ${"dwie struny naraz (dyady)".padEnd(34)} milczy ${String(dyadAbstain).padStart(3)}/${dyadTotal}   jedna ze strun ${String(dyadOneString).padStart(3)}   ZMYŚLONE ${String(dyadGarbage).padStart(3)}`,
+  )
+  for (const g of garbageExamples.slice(0, 6)) console.log(`       ✗ ${g}`)
+
+  // Koszt ramki obu silników na buforze tunera (4096) — tuner też chodzi z rAF.
+  const costCase = tunerCases[0]
+  for (const [name, run] of [
+    ["autoCorrelate", () => legacyTunerAutoCorrelate(costCase.buffer, costCase.sampleRate)],
+    ["rdzeń YIN", () => detectF0(costCase.buffer, costCase.sampleRate, { minFrequency: TUNER_MIN_HZ, maxFrequency: TUNER_MAX_HZ })],
+  ] as [string, () => unknown][]) {
+    for (let i = 0; i < 10; i++) run()
+    const start = process.hrtime.bigint()
+    const iterations = 50
+    for (let i = 0; i < iterations; i++) run()
+    const ms = Number(process.hrtime.bigint() - start) / iterations / 1e6
+    console.log(`  koszt ramki 4096: ${name.padEnd(16)} ${ms.toFixed(2).padStart(7)} ms`)
+  }
+
+  // Gra akordowa: bufor 2048, tor detektora Pro (domyślny), zaliczana CHROMA.
+  const chordCases = buildGuitarCases(2048)
+  let chromaCorrect = 0
+  let chromaWrong = 0
+  let chordMissed = 0
+  const wrongExamples: string[] = []
+  for (const c of chordCases) {
+    resetProPitchTracking()
+    const r = detectPitchPro(c.buffer, c.sampleRate, { rmsThreshold: 0.001 })
+    if (!r) { chordMissed++; continue }
+    if (chromaOf(r.frequency) === chromaOf(c.truth)) chromaCorrect++
+    else {
+      chromaWrong++
+      wrongExamples.push(`${c.label}: chroma ${chromaOf(c.truth)} → ${chromaOf(r.frequency)} (${r.frequency.toFixed(1)} Hz)`)
+    }
+  }
+  console.log(
+    `  ${"gra akordowa (Pro, chroma)".padEnd(34)} OK ${`${chromaCorrect}/${chordCases.length}`.padStart(9)}   złe ${String(chromaWrong).padStart(4)}   brak ${String(chordMissed).padStart(3)}`,
+  )
+  for (const w of wrongExamples.slice(0, 8)) console.log(`       ✗ ${w}`)
+}
+
+function runStrongH2Section(): void {
+  console.log("\n═══ GŁOS: dominująca h2 (pułapka oktawy w górę) ═══")
+  for (const detector of ["basic", "pro"] as Detector[]) {
+    const outcomes: FrameOutcome[] = []
+    for (const { note, octave } of CHROMATIC_RANGE) {
+      const truth = noteToFrequency(note, octave)
+      resetDetector(detector)
+      for (let frame = 0; frame < FRAMES_PER_NOTE; frame++) {
+        const startSeconds = (frame * BUFFER_SIZE) / 48000
+        const buffer = synthesizeStrongH2Voice(truth, 48000, BUFFER_SIZE, startSeconds)
+        const detected = runDetector(detector, buffer, 48000)
+        if (frame >= WARMUP_FRAMES) outcomes.push({ truth, detected })
+      }
+    }
+    printStats(`${detector} — h2 głośniejsza od h1`, summarize(outcomes))
+  }
+}
+
 /**
  * Koszt ramki. Pętla analizy chodzi z requestAnimationFrame na wątku głównym,
  * więc budżet na ramkę przy 60 fps to 16,7 ms — i to na WSZYSTKO, łącznie
@@ -321,6 +676,9 @@ function main(): void {
       console.log(`     ${label.padEnd(4)} ${truth.toFixed(2).padStart(8)} Hz → ${got.padStart(12)}${ratio}${flag}`)
     }
   }
+
+  runStrongH2Section()
+  runGuitarSection()
   console.log()
 }
 

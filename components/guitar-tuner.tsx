@@ -10,6 +10,8 @@ import {
   getCentsDifference,
   getTuningStatus,
 } from "@/lib/guitar"
+import { applyHannWindow, computeRms, detectF0, fundamentalPresence } from "@/lib/yin"
+import { frequencyToNote } from "@/lib/pitch-detector"
 import { Play, Square, Mic, MicOff, Volume2 } from "lucide-react"
 
 interface GuitarTunerProps {
@@ -29,9 +31,26 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
   const streamRef = useRef<MediaStream | null>(null)
   const animationRef = useRef<number | null>(null)
   const currentToneRef = useRef<{ stop: () => void } | null>(null)
+  /**
+   * Do kiedy detekcja jest wyciszona. Ton wzorcowy gra z głośnika przy
+   * otwartym mikrofonie — bez bramki wskaźnik pokazuje "nastrojona" dla
+   * dźwięku, który sam wygenerował, bo referencja Z DEFINICJI leży na
+   * częstotliwości docelowej.
+   */
+  const playbackMuteUntilRef = useRef(0)
+  /**
+   * Unieważnia sesję nasłuchu w locie. `startListening` czeka na getUserMedia;
+   * odmontowanie albo stop w trakcie tego oczekiwania zostawiały żywy mikrofon
+   * i pętlę rAF, której nikt już nie mógł anulować, bo refy dostawały wartości
+   * dopiero PO sprzątaniu.
+   */
+  const listenSessionRef = useRef(0)
+  /** Ramki z rzędu bez ważnego odczytu — po progu czyścimy wyświetlacz. */
+  const staleFramesRef = useRef(0)
 
   // Start listening to microphone
   const startListening = useCallback(async () => {
+    const session = ++listenSessionRef.current
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -41,12 +60,19 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
         },
       })
 
+      // Sesja unieważniona w trakcie oczekiwania (stop albo unmount):
+      // oddajemy mikrofon i nie startujemy pętli.
+      if (listenSessionRef.current !== session) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
       const audioContext = new AudioContext()
       const analyser = audioContext.createAnalyser()
       const source = audioContext.createMediaStreamSource(stream)
 
       analyser.fftSize = 4096
-      analyser.smoothingTimeConstant = 0.8
+      analyser.smoothingTimeConstant = 0
       source.connect(analyser)
 
       audioContextRef.current = audioContext
@@ -62,6 +88,7 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
 
   // Stop listening
   const stopListening = useCallback(() => {
+    ++listenSessionRef.current
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current)
     }
@@ -76,23 +103,76 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
     setDetectedNote(null)
   }, [])
 
-  // Pitch detection using autocorrelation
+  /**
+   * Zakres tunera: 60 Hz to ~3,5 półtonu pod najniższą struną obsługiwanych
+   * strojów (D2 = 73,4 Hz) — struna, którą się stroi, jest z definicji
+   * rozstrojona, więc margines w dół jest częścią zadania. Góra z zapasem
+   * na flażolety i wyższe pozycje.
+   */
+  const TUNER_MIN_HZ = 60
+  const TUNER_MAX_HZ = 1200
+  const RMS_GATE = 0.01
+  /**
+   * Tylko ścieżka progowa YIN. detectF0 poniżej progu bezwzględnego zwraca
+   * globalne minimum CMNDF z niską pewnością — rdzeń wprost każe takie ramki
+   * odrzucać. Ścieżka progowa ma CMNDF < 0,15, czyli pewność > 0,85; wszystko
+   * niżej to zgadywanie (dwie struny naraz, atak kostki, ogon wybrzmienia).
+   */
+  const CONFIDENCE_GATE = 0.85
+  /** Po tylu ramkach bez ważnego odczytu wyświetlacz gaśnie (~0,25 s). */
+  const STALE_FRAME_LIMIT = 15
+  /**
+   * Prążek f0 musi nieść ≥5% energii najsilniejszej harmonicznej (−26 dB).
+   * Odcina wirtualne fundamentalne dwóch strun naraz: B3+E4 są okresowe
+   * w 82,4 Hz, ale na 82,4 Hz nie ma tam żadnej energii.
+   */
+  const FUNDAMENTAL_PRESENCE_FLOOR = 0.05
+
   const detectPitch = useCallback(() => {
     if (!analyserRef.current) return
 
     const analyser = analyserRef.current
-    const bufferLength = analyser.fftSize
-    const buffer = new Float32Array(bufferLength)
+    const buffer = new Float32Array(analyser.fftSize)
 
     const detect = () => {
       analyser.getFloatTimeDomainData(buffer)
 
-      // Autocorrelation pitch detection
-      const frequency = autoCorrelate(buffer, audioContextRef.current!.sampleRate)
+      let validReading = false
 
-      if (frequency > 0) {
-        setDetectedFrequency(frequency)
-        setDetectedNote(frequencyToNote(frequency))
+      if (Date.now() < playbackMuteUntilRef.current) {
+        // Głośnik nie stroi gitary.
+        setDetectedFrequency(null)
+        setDetectedNote(null)
+        staleFramesRef.current = 0
+      } else if (computeRms(buffer) >= RMS_GATE) {
+        const result = detectF0(buffer, audioContextRef.current!.sampleRate, {
+          minFrequency: TUNER_MIN_HZ,
+          maxFrequency: TUNER_MAX_HZ,
+        })
+
+        if (
+          result &&
+          result.confidence >= CONFIDENCE_GATE &&
+          fundamentalPresence(applyHannWindow(buffer), audioContextRef.current!.sampleRate, result.frequency) >=
+            FUNDAMENTAL_PRESENCE_FLOOR
+        ) {
+          const info = frequencyToNote(result.frequency)
+          setDetectedFrequency(result.frequency)
+          setDetectedNote(`${info.note}${info.octave}`)
+          validReading = true
+        }
+      }
+
+      // Bez tego ostatni odczyt wisiał na ekranie w nieskończoność —
+      // "Nastrojona!" świeciło w ciszy długo po odłożeniu gitary.
+      if (!validReading) {
+        staleFramesRef.current++
+        if (staleFramesRef.current > STALE_FRAME_LIMIT) {
+          setDetectedFrequency(null)
+          setDetectedNote(null)
+        }
+      } else {
+        staleFramesRef.current = 0
       }
 
       animationRef.current = requestAnimationFrame(detect)
@@ -101,82 +181,9 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
     detect()
   }, [])
 
-  // Autocorrelation algorithm for pitch detection
-  const autoCorrelate = (buffer: Float32Array, sampleRate: number): number => {
-    // Find the root mean square to check if there's enough signal
-    let rms = 0
-    for (let i = 0; i < buffer.length; i++) {
-      rms += buffer[i] * buffer[i]
-    }
-    rms = Math.sqrt(rms / buffer.length)
-
-    if (rms < 0.01) return -1 // Not enough signal
-
-    // Find the first point where the signal crosses zero
-    let r1 = 0
-    let r2 = buffer.length - 1
-    const threshold = 0.2
-
-    for (let i = 0; i < buffer.length / 2; i++) {
-      if (Math.abs(buffer[i]) < threshold) {
-        r1 = i
-        break
-      }
-    }
-
-    for (let i = 1; i < buffer.length / 2; i++) {
-      if (Math.abs(buffer[buffer.length - i]) < threshold) {
-        r2 = buffer.length - i
-        break
-      }
-    }
-
-    const buf2 = buffer.slice(r1, r2)
-    const c = new Array(buf2.length).fill(0)
-
-    for (let i = 0; i < buf2.length; i++) {
-      for (let j = 0; j < buf2.length - i; j++) {
-        c[i] += buf2[j] * buf2[j + i]
-      }
-    }
-
-    let d = 0
-    while (c[d] > c[d + 1]) d++
-
-    let maxval = -1
-    let maxpos = -1
-
-    for (let i = d; i < buf2.length; i++) {
-      if (c[i] > maxval) {
-        maxval = c[i]
-        maxpos = i
-      }
-    }
-
-    let T0 = maxpos
-
-    // Parabolic interpolation
-    const x1 = c[T0 - 1]
-    const x2 = c[T0]
-    const x3 = c[T0 + 1]
-    const a = (x1 + x3 - 2 * x2) / 2
-    const b = (x3 - x1) / 2
-
-    if (a) T0 = T0 - b / (2 * a)
-
-    return sampleRate / T0
-  }
-
-  // Convert frequency to note name
-  const frequencyToNote = (frequency: number): string => {
-    const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-    const A4 = 440
-    const semitones = 12 * Math.log2(frequency / A4)
-    const noteIndex = Math.round(semitones) + 9 // A is at index 9
-    const octave = Math.floor((noteIndex + 3) / 12) + 4
-    const noteName = noteNames[((noteIndex % 12) + 12) % 12]
-    return `${noteName}${octave}`
-  }
+  /** Czas tonu wzorcowego i ogon na wybrzmienie głośnika/pokoju. */
+  const REFERENCE_TONE_MS = 2000
+  const PLAYBACK_TAIL_MS = 350
 
   // Play reference tone for a string
   const playString = useCallback((stringIndex: number) => {
@@ -189,11 +196,12 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
     setPlayingString(stringIndex)
     setSelectedString(string)
 
-    currentToneRef.current = playGuitarString(string.frequency, 2)
+    playbackMuteUntilRef.current = Date.now() + REFERENCE_TONE_MS + PLAYBACK_TAIL_MS
+    currentToneRef.current = playGuitarString(string.frequency, REFERENCE_TONE_MS / 1000)
 
     setTimeout(() => {
       setPlayingString(null)
-    }, 2000)
+    }, REFERENCE_TONE_MS)
   }, [selectedTuning])
 
   // Stop playing tone
@@ -202,6 +210,8 @@ export function GuitarTuner({ onClose }: GuitarTunerProps) {
       currentToneRef.current.stop()
       currentToneRef.current = null
     }
+    // Ogon po ręcznym zatrzymaniu: głośnik i pokój wybrzmiewają dłużej niż UI.
+    playbackMuteUntilRef.current = Date.now() + PLAYBACK_TAIL_MS
     setPlayingString(null)
   }, [])
 

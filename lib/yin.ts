@@ -223,6 +223,35 @@ export function detectF0(
 
 // ----- Goertzel: energia w pojedynczym prążku -----
 
+/**
+ * Stosunek energii w prążku samego f0 do najsilniejszej z harmonicznych 1–6.
+ *
+ * Werdykt okresowości nie wystarcza, gdy gra więcej niż jedno źródło: dwie
+ * struny w kwarcie (B3+E4, stosunek 4:3) są AUTENTYCZNIE okresowe we wspólnym
+ * okresie — wirtualna fundamentalna 82,4 Hz, czyli „E2", którego nikt nie
+ * zagrał. Odróżnia ją od prawdziwego E2 właśnie widmo: przy wirtualnej
+ * w prążku f0 nie ma żadnej energii (składowe leżą na 3f0 i 4f0), przy
+ * prawdziwej strunie fundamentalna zawsze niesie energię.
+ *
+ * Zwraca wartość 0–1; wołający porównuje z własnym progiem obecności.
+ * Bufor powinien być zokienkowany (applyHannWindow) — na oknie prostokątnym
+ * listki boczne silnych składowych zalewają pusty prążek.
+ */
+export function fundamentalPresence(
+  windowedBuffer: Float32Array,
+  sampleRate: number,
+  f0: number,
+): number {
+  const h1 = goertzelMagnitude(windowedBuffer, sampleRate, f0)
+  let strongest = h1
+  for (let harmonic = 2; harmonic <= 6; harmonic++) {
+    const frequency = f0 * harmonic
+    if (frequency >= sampleRate / 2) break
+    strongest = Math.max(strongest, goertzelMagnitude(windowedBuffer, sampleRate, frequency))
+  }
+  return strongest < 1e-9 ? 0 : h1 / strongest
+}
+
 const hannCache = new Map<number, Float32Array>()
 
 /**
