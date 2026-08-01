@@ -30,6 +30,7 @@ import {
 import { ExerciseStage } from "@/components/exercise-stage"
 import { Button } from "@/components/ui/button"
 import { trackEvent } from "@/lib/analytics"
+import { hapticSuccess, hapticTap, stayAwake } from "@/lib/native"
 import { ArrowUp, Mic, Play, RotateCcw, Ruler, SkipForward, Square, Volume2 } from "lucide-react"
 
 type Phase = "pick" | "preview" | "countdown" | "singing" | "result" | "summary"
@@ -75,6 +76,7 @@ export function ExerciseTrainer() {
       if (tickerRef.current) clearInterval(tickerRef.current)
       synthesizerRef.current?.close()
       synthesizerRef.current = null
+      void stayAwake(false)
     }
   }, [])
 
@@ -136,6 +138,8 @@ export function ExerciseTrainer() {
             tickerRef.current = null
           }
           const scored = scoreExercise(pitchHistoryRef.current, generated, anchor)
+          if (scored.hitCount === scored.notes.length) void hapticSuccess()
+          else if (scored.hitCount > 0) void hapticTap()
           setResult(scored)
           setElapsedMs(generated.totalMs)
           setPhase("result")
@@ -154,6 +158,7 @@ export function ExerciseTrainer() {
       setRootIndex(0)
       setCompleted([])
       if (!isRecording) await startRecording()
+      void stayAwake(true)
       trackEvent("exercise_session_started", "Training", pattern.id, newPlan.roots.length)
       void runStep(newPlan, 0)
     },
@@ -167,6 +172,7 @@ export function ExerciseTrainer() {
 
     if (rootIndex + 1 >= plan.roots.length) {
       stopRecording()
+      void stayAwake(false)
       setPhase("summary")
       trackEvent("exercise_session_done", "Training", plan.pattern.id, done.length)
       return
@@ -183,6 +189,7 @@ export function ExerciseTrainer() {
   const endSession = useCallback(() => {
     clearTimers()
     synthesizerRef.current?.stopAllSounds()
+    void stayAwake(false)
     if (isRecording) stopRecording()
     if (completed.length > 0 || result) {
       setPhase("summary")

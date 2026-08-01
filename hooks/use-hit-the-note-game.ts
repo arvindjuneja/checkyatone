@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import { AudioSynthesizer, type ToneNote } from "@/lib/audio-synth"
 import { type PitchData, noteToFrequency } from "@/lib/pitch-detector"
 import { trackEvent } from "@/lib/analytics"
+import { hapticSuccess } from "@/lib/native"
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -263,6 +264,7 @@ export function useHitTheNoteGame(
       }])
 
       setScore(prev => prev + 10)
+      void hapticSuccess()
       setPhase("celebrating")
       setHitProgress(100)
 
