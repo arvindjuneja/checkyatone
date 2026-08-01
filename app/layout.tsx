@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import Script from "next/script"
 import { AudioRecorderProvider } from "@/contexts/audio-recorder-context"
+import { AdGate } from "@/components/ad-gate"
 import "./globals.css"
 
 const jakarta = Plus_Jakarta_Sans({
@@ -55,6 +56,7 @@ export default function RootLayout({
         <AudioRecorderProvider>
           {children}
         </AudioRecorderProvider>
+        <AdGate />
         <Analytics />
       </body>
     </html>

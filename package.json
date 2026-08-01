@@ -11,6 +11,7 @@
     "eval:scoring": "node --import ./scripts/ts-register.mjs scripts/eval-scoring.ts"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^8.0.0",
     "@capacitor-community/keep-awake": "^8.0.1",
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",

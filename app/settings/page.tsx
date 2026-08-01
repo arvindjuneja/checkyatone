@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { trackPageView } from "@/lib/analytics"
 import { useAudioRecorderContext } from "@/contexts/audio-recorder-context"
 import { Settings, Info, HelpCircle, Volume2, Sparkles, Zap } from "lucide-react"
+import { AdFreeSettings } from "@/components/ad-free-settings"
 
 export default function SettingsPage() {
   const { detectionMode, setDetectionMode, gain, sensitivity, updateGain, updateSensitivity } = useAudioRecorderContext()
@@ -27,6 +28,8 @@ export default function SettingsPage() {
       </div>
 
       {/* Audio Settings */}
+      <AdFreeSettings />
+
       <div className="bg-card rounded-xl p-6 border border-border space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-pitch-perfect/10 flex items-center justify-center">
