@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { trackPageView } from "@/lib/analytics"
-import { BookOpen, Gamepad2, Music } from "lucide-react"
+import { BookOpen, Gamepad2, Music, Ruler } from "lucide-react"
 
 export default function TrainPage() {
   const router = useRouter()
@@ -36,7 +36,26 @@ export default function TrainPage() {
             <div className="flex-1">
               <h3 className="font-semibold text-base mb-1">Cwiczenia</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Cwicz z przewodnikiem rozne skale, arpeggia i interwaly. Wybieraj sposrod roznych poziomow trudnosci.
+                Rozgrzewki, skale, interwaly i zwinnosc — transponowane polton po
+                poltonie w Twoim zmierzonym zakresie glosu.
+              </p>
+            </div>
+          </div>
+        </button>
+
+        {/* Range Measurement Option */}
+        <button
+          onClick={() => router.push("/train/range")}
+          className="card-lift group rounded-3xl border border-white/5 bg-gradient-to-br from-secondary/40 to-card/80 hover:border-primary/30 p-5 text-left"
+        >
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-secondary/60 flex items-center justify-center shrink-0 group-hover:bg-secondary transition-colors">
+              <Ruler className="w-6 h-6 text-foreground" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-base mb-1">Pomiar zakresu glosu</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Dwa kroki, mniej niz minuta. Od tego zaczynaja sie dopasowane cwiczenia.
               </p>
             </div>
           </div>
