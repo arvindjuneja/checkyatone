@@ -8,7 +8,8 @@ import { trackEvent } from "@/lib/analytics"
 export interface SingAlongState {
   phase: "loading" | "ready" | "countdown" | "playing" | "paused" | "finished" | "track-select"
   midi: ParsedMidi | null
-  originalMidi: ParsedMidi | null  // Keep original for transposition
+  /** Nietknięta baza z pliku. NIGDY nie zapisujemy tu wyniku transpozycji. */
+  originalMidi: ParsedMidi | null
   currentTime: number      // Current position in ms
   score: number
   totalNotes: number
@@ -117,23 +118,10 @@ export function useSingAlong() {
   const selectTrack = useCallback((trackIndex: number | null) => {
     setState((prev) => {
       if (!prev.originalMidi) return prev
-      
-      let filteredMidi: ParsedMidi
-      
-      if (trackIndex === null) {
-        // Use all tracks
-        filteredMidi = prev.originalMidi
-      } else {
-        // Filter to only selected track's notes
-        const selectedTrack = prev.originalMidi.tracks[trackIndex]
-        if (!selectedTrack) return prev
-        
-        filteredMidi = {
-          ...prev.originalMidi,
-          notes: [...selectedTrack.notes].sort((a, b) => a.startTime - b.startTime),
-        }
-      }
-      
+      if (trackIndex !== null && !prev.originalMidi.tracks[trackIndex]) return prev
+
+      const filteredMidi = buildView(prev.originalMidi, prev.transpose, trackIndex)
+
       return {
         ...prev,
         phase: "ready",
@@ -144,7 +132,27 @@ export function useSingAlong() {
     })
   }, [])
 
-  // Transpose the song
+  /**
+   * Widok = f(baza, transpozycja, ścieżka), liczony zawsze od zera.
+   *
+   * Poprzednio setTranspose NADPISYWAŁO originalMidi wynikiem transpozycji
+   * i traktowało wartość absolutną z UI jak przyrost: drugi klik „−1 okt"
+   * dawał −36 półtonów przy etykiecie −24, a powrót do „Oryginał" był
+   * no-opem (transposeMidi(m, 0) zwraca wejście bez zmian) — utwór zostawał
+   * przesunięty na stałe. selectTrack z kolei budował widok z bazy BEZ
+   * transpozycji, co działało tylko dzięki tamtej mutacji.
+   */
+  const buildView = (original: ParsedMidi, transpose: number, trackIndex: number | null): ParsedMidi => {
+    const transposed = transposeMidi(original, transpose)
+    if (trackIndex === null) return transposed
+    const selectedTrack = transposed.tracks[trackIndex]
+    if (!selectedTrack) return transposed
+    return {
+      ...transposed,
+      notes: [...selectedTrack.notes].sort((a, b) => a.startTime - b.startTime),
+    }
+  }
+
   const setTranspose = useCallback((semitones: number) => {
     // Track transpose change
     trackEvent("transpose_changed", "SingAlong", `${semitones > 0 ? '+' : ''}${semitones}`, semitones)
@@ -152,25 +160,9 @@ export function useSingAlong() {
     setState((prev) => {
       if (!prev.originalMidi) return prev
 
-      // Transpose original MIDI
-      const transposedOriginal = transposeMidi(prev.originalMidi, semitones)
-
-      // If a track is selected, filter to that track's notes
-      let transposedMidi: ParsedMidi
-      if (prev.selectedTrackIndex !== null) {
-        const selectedTrack = transposedOriginal.tracks[prev.selectedTrackIndex]
-        transposedMidi = {
-          ...transposedOriginal,
-          notes: selectedTrack ? [...selectedTrack.notes].sort((a, b) => a.startTime - b.startTime) : [],
-        }
-      } else {
-        transposedMidi = transposedOriginal
-      }
-
       return {
         ...prev,
-        midi: transposedMidi,
-        originalMidi: transposeMidi(prev.originalMidi, semitones), // Keep original transposed too
+        midi: buildView(prev.originalMidi, semitones, prev.selectedTrackIndex),
         transpose: semitones,
       }
     })

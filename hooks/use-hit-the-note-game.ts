@@ -296,7 +296,7 @@ export function useHitTheNoteGame(
         }
       }, 1500) // 1.5s celebration time
     }
-  }, [phase, currentNote, generateRandomNote, pauseListeningDuringPlayback])
+  }, [phase, currentNote, strictOctave, generateRandomNote, pauseListeningDuringPlayback])
 
   const skipNote = useCallback(() => {
     if (phase !== "playing" || !currentNote) return

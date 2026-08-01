@@ -6,7 +6,7 @@ import { trackPageView, trackEvent } from "@/lib/analytics"
 import { Music, Mic, Square, Play, Pause, Download, Sparkles, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { PitchVisualizer } from "@/components/pitch-visualizer"
-import { detectPitch, resetPitchTracking, type PitchData } from "@/lib/pitch-detector"
+import { detectPitch, frequencyToNote, resetPitchTracking, type PitchData } from "@/lib/pitch-detector"
 
 // YouTube Player types
 declare global {
@@ -132,18 +132,10 @@ export default function KaraokePage() {
         timestamp: Date.now(),
       }
 
-      // Convert frequency to note
-      const A4 = 440
-      const C0 = A4 * Math.pow(2, -4.75)
-      const halfSteps = Math.round(12 * Math.log2(frequency / C0))
-      const octave = Math.floor(halfSteps / 12) - 1
-      const noteIndex = halfSteps % 12
-      const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-      const note = noteNames[noteIndex]
-
-      // Calculate cents deviation
-      const exactHalfSteps = 12 * Math.log2(frequency / C0)
-      const cents = Math.round((exactHalfSteps - halfSteps) * 100)
+      // Wspólny konwerter. Lokalna kopia liczyła półtony od C0, ale odejmowała
+      // 1 od oktawy jak przy numeracji MIDI — każda nuta wyświetlała się
+      // oktawę za nisko (440 Hz jako A3).
+      const { note, octave, cents } = frequencyToNote(frequency)
 
       const pitchData: PitchData = {
         ...noteInfo,

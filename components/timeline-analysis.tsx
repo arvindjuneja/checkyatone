@@ -48,7 +48,10 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
     // Filter out unrealistic frequencies (keep only C2-C6 range for vocals)
     const realisticPitches = pitchHistory.filter(p => {
       const semitone = p.octave * 12 + ALL_NOTES.indexOf(p.note)
-      return semitone >= 36 && semitone <= 84 // C2 to C6
+      // Skala lokalna pliku to oktawa*12 (= MIDI − 12): C2 = 24, C6 = 72.
+      // Poprzednie granice 36..84 były numerami MIDI, więc realnie
+      // przepuszczały C3–C7 i wycinały cały bas C2–B2.
+      return semitone >= 24 && semitone <= 72
     })
 
     if (realisticPitches.length === 0) return []
@@ -107,15 +110,15 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
 
   // Calculate note range from data (filtered to realistic vocal range)
   const noteRange = useMemo(() => {
-    if (pitchHistory.length === 0) return { min: 48, max: 72 } // C3 to C5
+    if (pitchHistory.length === 0) return { min: 36, max: 60 } // C3–C5 w skali lokalnej
 
     let minSemitone = Number.POSITIVE_INFINITY
     let maxSemitone = Number.NEGATIVE_INFINITY
 
     pitchHistory.forEach((p) => {
       const semitone = p.octave * 12 + ALL_NOTES.indexOf(p.note)
-      // Only consider realistic vocal range (C2 to C6)
-      if (semitone >= 36 && semitone <= 84) {
+      // C2–C6 w skali lokalnej (oktawa*12), patrz komentarz przy filtrze wyżej.
+      if (semitone >= 24 && semitone <= 72) {
         minSemitone = Math.min(minSemitone, semitone)
         maxSemitone = Math.max(maxSemitone, semitone)
       }
@@ -123,13 +126,13 @@ export function TimelineAnalysis({ pitchHistory }: TimelineAnalysisProps) {
 
     // If no valid pitches found, use default range
     if (minSemitone === Number.POSITIVE_INFINITY) {
-      return { min: 48, max: 72 } // C3 to C5
+      return { min: 36, max: 60 } // C3–C5 w skali lokalnej
     }
 
     // Add padding but stay within vocal range
     return {
-      min: Math.max(36, minSemitone - 2), // C2 minimum
-      max: Math.min(84, maxSemitone + 2), // C6 maximum
+      min: Math.max(24, minSemitone - 2), // C2 w skali lokalnej
+      max: Math.min(72, maxSemitone + 2), // C6 w skali lokalnej
     }
   }, [pitchHistory])
 
